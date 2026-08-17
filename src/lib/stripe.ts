@@ -13,7 +13,10 @@ export function getStripeClient(): Stripe {
         "STRIPE_SECRET_KEYが設定されていません。.envにStripeのテストモードAPIキーを設定してください。",
       );
     }
-    client = new Stripe(key);
+    // Vercelのサーバーレス環境ではfetchベースの既定クライアントが
+    // StripeConnectionError(接続エラー)を起こすことがあるため、
+    // 従来のNode httpsクライアントを明示的に使う
+    client = new Stripe(key, { httpClient: Stripe.createNodeHttpClient() });
   }
   return client;
 }
