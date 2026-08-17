@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- 材料・仕入れ ----------
+
+model Ingredient {
+  id                String                      @id @default(cuid())
+  name              String
+  unit              String                      @default("g")
+  // g/ml単位の端数を扱うためInt不可
+  stock             Decimal                     @default(0) @db.Decimal(14, 3)
+  // 直近の仕入単価(移動平均ではなく、シンプルに最新仕入れで上書きする)
+  costPerUnit       Decimal                     @default(0) @db.Decimal(14, 4)
+  lowStockThreshold Decimal?                    @db.Decimal(14, 3)
+  isTest            Boolean                     @default(false)
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
+  purchases         IngredientPurchase[]
+  adjustments       IngredientStockAdjustment[]
+  recipeUses        RecipeIngredient[]
+}
+
+model IngredientPurchase {
+  id             String      @id @default(cuid())
+  ingredientId   String?
+  ingredient     Ingredient? @relation(fields: [ingredientId], references: [id], onDelete: SetNull)
+  // 材料が後で削除・改名されても仕入れ履歴の表示が壊れないようスナップショットを保持する
+  ingredientName String
+  quantity       Decimal     @db.Decimal(14, 3)
+  unitCost       Decimal     @db.Decimal(14, 4)
+  amount         Decimal     @db.Decimal(14, 2)
+  memo           String?
+  isTest         Boolean     @default(false)
+  createdAt      DateTime    @default(now())
+}
+
+enum StockAdjustmentReason {
+  MISTAKE
+  PURCHASE_DECREASE
+  OTHER
+}
+
+model IngredientStockAdjustment {
+  id             String                @id @default(cuid())
+  ingredientId   String?
+  ingredient     Ingredient?           @relation(fields: [ingredientId], references: [id], onDelete: SetNull)
+  ingredientName String
+  delta          Decimal               @db.Decimal(14, 3)
+  reason         StockAdjustmentReason
+  note           String?
+  isTest         Boolean               @default(false)
+  createdAt      DateTime              @default(now())
+}
+
+// ---------- メニュー・レシピ(原価計算) ----------
+
+model MenuItem {
+  id             String             @id @default(cuid())
+  name           String
+  category       String?
+  salePrice      Decimal            @db.Decimal(14, 2)
+  showInRegister Boolean            @default(true)
+  isTest         Boolean            @default(false)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  recipe         RecipeIngredient[]
+  saleItems      SaleItem[]
+}
+
+// レシピ = メニューと材料の中間テーブル。原価はここから都度計算する(保存しない)
+model RecipeIngredient {
+  id              String     @id @default(cuid())
+  menuItemId      String
+  menuItem        MenuItem   @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  ingredientId    String
+  ingredient      Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+  quantityPerUnit Decimal    @db.Decimal(14, 3)
+
+  @@unique([menuItemId, ingredientId])
+}
+
+// ---------- レジ・会計 ----------
+
+enum PaymentMethod {
+  CASH
+  CARD
+}
+
+model Sale {
+  id                    String        @id @default(cuid())
+  totalAmount           Decimal       @db.Decimal(14, 2)
+  totalCost             Decimal       @db.Decimal(14, 2)
+  itemCount             Int
+  paymentMethod         PaymentMethod
+  stripePaymentIntentId String?       @unique
+  voided                Boolean       @default(false)
+  isTest                Boolean       @default(false)
+  // オフライン再送時の重複防止キー
+  clientId              String?       @unique
+  occurredAt            DateTime      @default(now())
+  createdAt             DateTime      @default(now())
+  items                 SaleItem[]
+}
+
+model SaleItem {
+  id         String    @id @default(cuid())
+  saleId     String
+  sale       Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  menuItemId String?
+  menuItem   MenuItem? @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+  // メニューが後で改名・レシピ変更されても、この取引時点の内容が変わらないようスナップショットを保持する
+  name       String
+  unitPrice  Decimal   @db.Decimal(14, 2)
+  unitCost   Decimal   @db.Decimal(14, 2)
+  quantity   Int
+  amount     Decimal   @db.Decimal(14, 2)
+  // 会計時点で実際に消費した材料のスナップショット: [{ingredientId, ingredientName, qty}]
+  // レシピが後で変わっても、取消(void)時に正しい量を在庫へ戻すために必要
+  ingredientUsage Json
+}
+
+model DailyRegister {
+  id           String    @id @default(cuid())
+  day          String    @unique
+  openingCash  Decimal?  @db.Decimal(14, 2)
+  openedAt     DateTime?
+  closingCash  Decimal?  @db.Decimal(14, 2)
+  // 現金過不足の期待値。現金(CASH)の会計のみを対象に計算する
+  expectedCash Decimal?  @db.Decimal(14, 2)
+  closedAt     DateTime?
+  cashCounts   Json?
+}
+
+model Expense {
+  id        String   @id @default(cuid())
+  name      String
+  amount    Decimal  @db.Decimal(14, 2)
+  memo      String?
+  photoPath String?
+  isTest    Boolean  @default(false)
+  spentOn   DateTime @db.Date
+  createdAt DateTime @default(now())
+}
+
+model AppSetting {
+  id        String   @id @default("singleton")
+  testMode  Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+}

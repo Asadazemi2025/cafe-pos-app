@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  デザイン方針：焙煎豆を思わせる温かみのあるニュートラルに、
+  カラメル色のアクセントを合わせたフラットな管理画面。
+  浅田ラボと同じCSS変数トークンの仕組みを流用し、色だけをカフェ向けに変更している。
+*/
+
+:root {
+  --bg: 246 243 238;
+  --surface: 255 255 255;
+  --surface-hover: 243 238 231;
+  --ink: 38 31 27;
+  --ink-muted: 143 129 118;
+  --border: 231 223 213;
+  --accent: 158 94 40;
+  --accent-weak: 245 231 214;
+  --warning: 191 130 20;
+  --danger: 197 74 46;
+  --success: 58 138 76;
+  --radius: 20px;
+
+  --sidebar-bg: 48 34 28;
+  --sidebar-hover: 64 46 38;
+  --sidebar-ink: 240 231 222;
+  --sidebar-ink-muted: 184 164 148;
+
+  --shadow-card: 0 1px 2px rgb(38 24 15 / 0.05), 0 12px 24px -8px rgb(38 24 15 / 0.12);
+  --shadow-card-hover: 0 4px 8px rgb(38 24 15 / 0.07), 0 20px 32px -8px rgb(38 24 15 / 0.18);
+}
+
+.dark {
+  --bg: 24 20 18;
+  --surface: 34 28 25;
+  --surface-hover: 44 37 33;
+  --ink: 237 230 222;
+  --ink-muted: 163 148 138;
+  --border: 54 45 40;
+  --accent: 214 150 92;
+  --accent-weak: 58 42 30;
+  --warning: 230 175 90;
+  --danger: 230 130 100;
+  --success: 90 190 120;
+
+  --sidebar-bg: 18 14 12;
+  --sidebar-hover: 32 24 20;
+  --sidebar-ink: 237 230 222;
+  --sidebar-ink-muted: 150 130 115;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.2), 0 12px 24px -8px rgb(0 0 0 / 0.4);
+  --shadow-card-hover: 0 4px 8px rgb(0 0 0 / 0.25), 0 20px 32px -8px rgb(0 0 0 / 0.5);
+}
+
+@layer base {
+  html,
+  body {
+    background-color: rgb(var(--bg));
+  }
+
+  body {
+    color: rgb(var(--ink));
+    font-feature-settings: "palt";
+  }
+
+  /* 金額・数量などの数値は等幅で桁を揃える */
+  .num {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
+  }
+
+  :focus-visible {
+    outline: 2px solid rgb(var(--accent));
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* iOSのSafariで入力欄タップ時に自動ズームするのを防ぐ */
+input,
+select,
+textarea {
+  font-size: 16px !important;
+}
