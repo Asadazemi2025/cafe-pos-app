@@ -47,7 +47,7 @@ export default function LoginPage() {
           <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-accent text-white font-bold shadow-card">
             珈
           </div>
-          <h1 className="mt-3 text-lg font-bold tracking-tight">カフェPOSへようこそ</h1>
+          <h1 className="mt-3 text-lg font-bold tracking-tight">つむぐカフェへようこそ</h1>
           <p className="mt-1 text-sm text-ink-muted">合言葉を入れてください</p>
         </div>
 

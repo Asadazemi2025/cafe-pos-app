@@ -3,7 +3,7 @@ import { Toaster } from "sonner";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "カフェPOS",
+  title: "つむぐカフェ",
   description: "原価計算・在庫管理・レジ・決済をまとめたカフェ運営アプリ",
 };
 

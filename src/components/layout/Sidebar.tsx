@@ -28,7 +28,7 @@ export function Sidebar() {
   return (
     <aside className="flex h-full w-56 shrink-0 flex-col bg-sidebar px-3 py-5 text-sidebar-ink">
       <div className="px-2.5 pb-5">
-        <p className="text-sm font-bold tracking-tight">カフェPOS</p>
+        <p className="text-sm font-bold tracking-tight">つむぐカフェ</p>
       </div>
 
       <nav className="flex flex-1 flex-col gap-1">
