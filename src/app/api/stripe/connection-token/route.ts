@@ -14,9 +14,12 @@ export async function POST() {
     const token = await stripe.terminal.connectionTokens.create();
     return NextResponse.json({ secret: token.secret });
   } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "接続トークンの発行に失敗しました。" },
-      { status: 500 },
-    );
+    // 原因調査のため、一時的にエラーの詳細(type/code)も返している(後で戻す)
+    const detail =
+      e && typeof e === "object"
+        ? { type: (e as any).type, code: (e as any).code, message: (e as any).message }
+        : String(e);
+    console.error("connection-token error", detail);
+    return NextResponse.json({ error: "接続トークンの発行に失敗しました。", detail }, { status: 500 });
   }
 }
