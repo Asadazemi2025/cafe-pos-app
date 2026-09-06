@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createEvent, selectEvent, type EventDTO } from "@/app/select-event/actions";
 import { yen } from "@/lib/money";
@@ -16,6 +17,7 @@ export function EventSelector({
   readOnly?: boolean;
   currentEventId: string | null;
 }) {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [date, setDate] = useState(todayJST());
   const [pending, setPending] = useState(false);
@@ -24,12 +26,11 @@ export function EventSelector({
     setPending(true);
     try {
       await selectEvent(id);
+      router.push("/");
+      router.refresh();
     } catch (e) {
-      // redirect()も例外として飛んでくるので、実エラーのときだけ拾う
-      if (e instanceof Error && !e.message.includes("NEXT_REDIRECT")) {
-        toast.error(e.message);
-        setPending(false);
-      }
+      toast.error(e instanceof Error ? e.message : "切り替えに失敗しました。");
+      setPending(false);
     }
   }
 
@@ -45,11 +46,11 @@ export function EventSelector({
     setPending(true);
     try {
       await createEvent({ name, date });
+      router.push("/");
+      router.refresh();
     } catch (e) {
-      if (e instanceof Error && !e.message.includes("NEXT_REDIRECT")) {
-        toast.error(e.message);
-        setPending(false);
-      }
+      toast.error(e instanceof Error ? e.message : "作成に失敗しました。");
+      setPending(false);
     }
   }
 

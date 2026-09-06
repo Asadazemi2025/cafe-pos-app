@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { requireAuth, requireEditAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { setCurrentEventCookie } from "@/lib/event";
@@ -34,12 +33,13 @@ export async function getEvents(): Promise<EventDTO[]> {
   }));
 }
 
+// 遷移はクライアント側のrouter.push()で行う(サーバー側のredirect()は
+// クライアントのtry/catchに巻き込まれて動かないため)
 export async function selectEvent(eventId: string): Promise<void> {
   requireAuth();
   const event = await prisma.event.findUnique({ where: { id: eventId } });
   if (!event) throw new Error("そのイベントは見つかりませんでした。");
   setCurrentEventCookie(eventId);
-  redirect("/");
 }
 
 export async function createEvent(input: { name: string; date: string }): Promise<void> {
@@ -51,11 +51,11 @@ export async function createEvent(input: { name: string; date: string }): Promis
   const created = await prisma.event.create({
     data: {
       name,
-      // JSTの日付として保存する(UTC変換で前日にずれないように)
-      date: new Date(`${input.date}T00:00:00+09:00`),
+      // 日付だけのカラム(@db.Date)なのでUTCの0時として保存する。
+      // JSTの0時で保存すると、読み出し時にUTC変換で前日にずれる。
+      date: new Date(`${input.date}T00:00:00Z`),
     },
   });
 
   setCurrentEventCookie(created.id);
-  redirect("/");
 }
