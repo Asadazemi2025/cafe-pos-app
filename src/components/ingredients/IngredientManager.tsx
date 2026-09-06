@@ -7,6 +7,7 @@ import {
   createIngredient,
   createIngredientPurchase,
   adjustIngredientStock,
+  updateLowStockThreshold,
   deleteIngredient,
   type IngredientDTO,
 } from "@/app/(app)/ingredients/actions";
@@ -33,6 +34,7 @@ export function IngredientManager({
   const [newUnit, setNewUnit] = useState("g");
   const [newQty, setNewQty] = useState("");
   const [newCost, setNewCost] = useState("");
+  const [newThreshold, setNewThreshold] = useState("");
   const [creating, setCreating] = useState(false);
 
   const [purchaseTarget, setPurchaseTarget] = useState<IngredientDTO | null>(null);
@@ -59,16 +61,28 @@ export function IngredientManager({
         unit: newUnit,
         initialQuantity: newQty ? Number(newQty) : undefined,
         initialUnitCost: newCost ? Number(newCost) : undefined,
+        lowStockThreshold: newThreshold ? Number(newThreshold) : undefined,
       });
       setNewName("");
       setNewQty("");
       setNewCost("");
+      setNewThreshold("");
       toast.success("材料を登録しました。");
       router.refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "登録に失敗しました。");
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function handleThresholdChange(id: string, value: string) {
+    if (guardReadOnly()) return;
+    try {
+      await updateLowStockThreshold(id, value ? Number(value) : null);
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "更新に失敗しました。");
     }
   }
 
@@ -125,6 +139,16 @@ export function IngredientManager({
               className="mt-1 block w-28 rounded border border-border px-2.5 py-1.5 text-sm"
             />
           </label>
+          <label className="text-xs text-ink-muted">
+            低在庫の目安(任意)
+            <input
+              value={newThreshold}
+              onChange={(e) => setNewThreshold(e.target.value)}
+              type="number"
+              placeholder="例: 200"
+              className="mt-1 block w-28 rounded border border-border px-2.5 py-1.5 text-sm"
+            />
+          </label>
           <button
             onClick={handleCreate}
             disabled={creating}
@@ -143,6 +167,7 @@ export function IngredientManager({
               <th className="px-4 py-2.5">材料名</th>
               <th className="px-4 py-2.5">在庫</th>
               <th className="px-4 py-2.5">単価</th>
+              <th className="px-4 py-2.5">低在庫の目安</th>
               <th className="px-4 py-2.5"></th>
             </tr>
           </thead>
@@ -157,6 +182,16 @@ export function IngredientManager({
                   </td>
                   <td className="num px-4 py-2.5 text-ink-muted">
                     ¥{ing.costPerUnit.toLocaleString("ja-JP")} / {ing.unit}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <input
+                      key={ing.lowStockThreshold ?? "none"}
+                      type="number"
+                      defaultValue={ing.lowStockThreshold ?? ""}
+                      placeholder="未設定"
+                      onBlur={(e) => handleThresholdChange(ing.id, e.target.value)}
+                      className="w-24 rounded border border-border px-2 py-1 text-sm"
+                    />
                   </td>
                   <td className="px-4 py-2.5">
                     <div className="flex justify-end gap-1.5">
@@ -186,7 +221,7 @@ export function IngredientManager({
             })}
             {ingredients.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-sm text-ink-muted">
+                <td colSpan={5} className="px-4 py-8 text-center text-sm text-ink-muted">
                   まだ材料が登録されていません。
                 </td>
               </tr>

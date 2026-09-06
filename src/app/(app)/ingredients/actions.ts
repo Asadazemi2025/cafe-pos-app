@@ -164,6 +164,20 @@ export async function adjustIngredientStock(input: {
   revalidatePath("/ingredients");
 }
 
+export async function updateLowStockThreshold(
+  ingredientId: string,
+  threshold: number | null,
+): Promise<void> {
+  requireEditAuth();
+  await prisma.ingredient.update({
+    where: { id: ingredientId },
+    data: {
+      lowStockThreshold: threshold != null && threshold > 0 ? new Prisma.Decimal(threshold) : null,
+    },
+  });
+  revalidatePath("/ingredients");
+}
+
 export async function deleteIngredient(id: string) {
   requireEditAuth();
   try {
