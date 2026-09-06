@@ -76,17 +76,40 @@ model IngredientStockAdjustment {
 
 // ---------- メニュー・レシピ(原価計算) ----------
 
+// 作り方の違い。売れたときに材料を減らすのか、仕込み済みの個数を減らすのか
+enum MenuStockMode {
+  // 注文を受けてから作る。販売時にレシピ通り材料を消費する
+  MADE_TO_ORDER
+  // あらかじめ作っておく。仕込み時に材料を消費し、販売時は残り個数だけ減る
+  PREPARED
+}
+
 model MenuItem {
   id             String             @id @default(cuid())
   name           String
   category       String?
   salePrice      Decimal            @db.Decimal(14, 2)
   showInRegister Boolean            @default(true)
+  stockMode      MenuStockMode      @default(MADE_TO_ORDER)
+  // PREPAREDのときの「あと何個売れるか」
+  preparedStock  Int                @default(0)
   isTest         Boolean            @default(false)
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
   recipe         RecipeIngredient[]
   saleItems      SaleItem[]
+  preparations   MenuPreparation[]
+}
+
+// 仕込みの記録(何を何個作ったか)。材料はこのタイミングで消費される。
+model MenuPreparation {
+  id         String   @id @default(cuid())
+  menuItemId String?
+  menuItem   MenuItem? @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+  menuItemName String
+  quantity   Int
+  isTest     Boolean  @default(false)
+  createdAt  DateTime @default(now())
 }
 
 // レシピ = メニューと材料の中間テーブル。原価はここから都度計算する(保存しない)
@@ -143,6 +166,8 @@ model SaleItem {
   // 会計時点で実際に消費した材料のスナップショット: [{ingredientId, ingredientName, qty}]
   // レシピが後で変わっても、取消(void)時に正しい量を在庫へ戻すために必要
   ingredientUsage Json
+  // 仕込み済みの在庫から売れた行かどうか。取消時に材料ではなく個数を戻すために使う
+  fromPreparedStock Boolean @default(false)
 }
 
 model DailyRegister {

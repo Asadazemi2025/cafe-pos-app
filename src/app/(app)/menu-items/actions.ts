@@ -3,8 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { requireAuth, requireEditAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { computeMenuItemCosts } from "@/lib/cost";
+import { computeMenuItemCosts, expandRecipeUsage } from "@/lib/cost";
 import { Prisma } from "@prisma/client";
+
+export type MenuStockModeDTO = "MADE_TO_ORDER" | "PREPARED";
 
 export type MenuItemDTO = {
   id: string;
@@ -13,6 +15,8 @@ export type MenuItemDTO = {
   salePrice: number;
   costPrice: number;
   showInRegister: boolean;
+  stockMode: MenuStockModeDTO;
+  preparedStock: number;
 };
 
 export async function getMenuItems(): Promise<MenuItemDTO[]> {
@@ -29,6 +33,8 @@ export async function getMenuItems(): Promise<MenuItemDTO[]> {
     salePrice: i.salePrice.toNumber(),
     costPrice: costs[i.id].toNumber(),
     showInRegister: i.showInRegister,
+    stockMode: i.stockMode,
+    preparedStock: i.preparedStock,
   }));
 }
 
@@ -134,6 +140,71 @@ export async function saveRecipe(
       : []),
   ]);
   revalidatePath("/menu-items");
+}
+
+export async function setStockMode(
+  menuItemId: string,
+  stockMode: MenuStockModeDTO,
+): Promise<void> {
+  requireEditAuth();
+  await prisma.menuItem.update({ where: { id: menuItemId }, data: { stockMode } });
+  revalidatePath("/menu-items");
+  revalidatePath("/register");
+}
+
+// 仕込み(作り置き)の記録。レシピ通りに材料を消費して、売れる個数を増やす。
+export async function recordPreparation(menuItemId: string, quantity: number): Promise<void> {
+  requireEditAuth();
+  if (quantity <= 0) throw new Error("作った個数を入力してください。");
+
+  await prisma.$transaction(async (tx) => {
+    const menuItem = await tx.menuItem.findUniqueOrThrow({ where: { id: menuItemId } });
+
+    const usage = await expandRecipeUsage(menuItemId, quantity, tx);
+    if (usage.length > 0) {
+      const updated = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
+        UPDATE "Ingredient" AS i
+        SET stock = i.stock - v.qty
+        FROM (VALUES ${Prisma.join(
+          usage.map((u) => Prisma.sql`(${u.ingredientId}::text, ${u.qty}::numeric)`),
+        )}) AS v(id, qty)
+        WHERE i.id = v.id AND i.stock >= v.qty
+        RETURNING i.id
+      `);
+      if (updated.length !== usage.length) {
+        throw new Error("材料の在庫が足りません。");
+      }
+    }
+
+    await tx.menuItem.update({
+      where: { id: menuItemId },
+      data: {
+        preparedStock: { increment: quantity },
+        // 仕込みを記録した時点で「作り置き」の運用に切り替える
+        stockMode: "PREPARED",
+      },
+    });
+
+    await tx.menuPreparation.create({
+      data: { menuItemId, menuItemName: menuItem.name, quantity },
+    });
+  });
+
+  revalidatePath("/menu-items");
+  revalidatePath("/register");
+  revalidatePath("/ingredients");
+}
+
+// 数え間違いなどの手直し用。材料には影響させない。
+export async function setPreparedStock(menuItemId: string, nextStock: number): Promise<void> {
+  requireEditAuth();
+  if (nextStock < 0) throw new Error("0以上の個数を入力してください。");
+  await prisma.menuItem.update({
+    where: { id: menuItemId },
+    data: { preparedStock: Math.round(nextStock) },
+  });
+  revalidatePath("/menu-items");
+  revalidatePath("/register");
 }
 
 export async function deleteMenuItem(id: string): Promise<void> {

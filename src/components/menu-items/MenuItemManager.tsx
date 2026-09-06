@@ -9,6 +9,9 @@ import {
   saveRecipe,
   deleteMenuItem,
   getMenuItemRecipe,
+  recordPreparation,
+  setPreparedStock,
+  setStockMode,
   type MenuItemDTO,
   type IngredientOptionDTO,
 } from "@/app/(app)/menu-items/actions";
@@ -29,6 +32,17 @@ export function MenuItemManager({
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState<MenuItemDTO | "new" | null>(null);
+  const [prepTarget, setPrepTarget] = useState<MenuItemDTO | null>(null);
+
+  async function handleToggleMode(m: MenuItemDTO) {
+    if (guardReadOnly()) return;
+    try {
+      await setStockMode(m.id, m.stockMode === "PREPARED" ? "MADE_TO_ORDER" : "PREPARED");
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "変更に失敗しました。");
+    }
+  }
 
   function guardReadOnly(): boolean {
     if (readOnly) {
@@ -70,6 +84,7 @@ export function MenuItemManager({
               <th className="px-4 py-2.5">原価</th>
               <th className="px-4 py-2.5">販売価格</th>
               <th className="px-4 py-2.5">粗利</th>
+              <th className="px-4 py-2.5">作り方・残り</th>
               <th className="px-4 py-2.5">レジ表示</th>
               <th className="px-4 py-2.5"></th>
             </tr>
@@ -93,6 +108,29 @@ export function MenuItemManager({
                     <span className="ml-1.5 text-xs text-ink-muted">
                       ({marginRate.toFixed(0)}%)
                     </span>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    {m.stockMode === "PREPARED" ? (
+                      <span className="flex items-center gap-2">
+                        <span className="num text-sm font-bold">残り{m.preparedStock}個</span>
+                        <button
+                          onClick={() => (guardReadOnly() ? null : setPrepTarget(m))}
+                          className="rounded border border-border px-2 py-0.5 text-xs hover:bg-surface-hover"
+                        >
+                          仕込む
+                        </button>
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        <span className="text-xs text-ink-muted">注文後に作る</span>
+                        <button
+                          onClick={() => (guardReadOnly() ? null : setPrepTarget(m))}
+                          className="rounded border border-border px-2 py-0.5 text-xs hover:bg-surface-hover"
+                        >
+                          仕込む
+                        </button>
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-2.5 text-xs text-ink-muted">
                     {m.showInRegister ? "表示中" : "非表示"}
@@ -129,6 +167,15 @@ export function MenuItemManager({
         </table>
       </div>
 
+      {prepTarget && (
+        <PreparationModal
+          menuItem={prepTarget}
+          onClose={() => setPrepTarget(null)}
+          onDone={() => router.refresh()}
+          onToggleMode={() => handleToggleMode(prepTarget)}
+        />
+      )}
+
       {editing && (
         <MenuItemEditor
           target={editing === "new" ? null : editing}
@@ -138,6 +185,122 @@ export function MenuItemManager({
         />
       )}
     </div>
+  );
+}
+
+function PreparationModal({
+  menuItem,
+  onClose,
+  onDone,
+  onToggleMode,
+}: {
+  menuItem: MenuItemDTO;
+  onClose: () => void;
+  onDone: () => void;
+  onToggleMode: () => void;
+}) {
+  const [quantity, setQuantity] = useState("");
+  const [nextStock, setNextStock] = useState(String(menuItem.preparedStock));
+  const [pending, setPending] = useState(false);
+
+  async function submitPreparation() {
+    if (!quantity || Number(quantity) <= 0) {
+      toast.error("作った個数を入力してください。");
+      return;
+    }
+    setPending(true);
+    try {
+      await recordPreparation(menuItem.id, Number(quantity));
+      toast.success(`${quantity}個ぶんの材料を使い、売れる個数に足しました。`);
+      onDone();
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "記録に失敗しました。");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function submitCorrection() {
+    setPending(true);
+    try {
+      await setPreparedStock(menuItem.id, Number(nextStock || 0));
+      toast.success("残り個数を修正しました。");
+      onDone();
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "修正に失敗しました。");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <Modal open onOpenChange={(o) => !o && onClose()} title={`${menuItem.name} の仕込み`}>
+      <div className="space-y-4">
+        <div>
+          <label className="block text-xs text-ink-muted">
+            作った個数
+            <input
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              type="number"
+              autoFocus
+              className="mt-1 block w-full rounded border border-border px-2.5 py-1.5 text-sm"
+            />
+          </label>
+          <p className="mt-1.5 text-[11px] text-ink-muted">
+            レシピ通りに材料が減り、そのぶんレジで売れる個数が増えます。
+          </p>
+          <button
+            onClick={submitPreparation}
+            disabled={pending}
+            className="mt-2 w-full rounded bg-accent py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+          >
+            仕込みを記録する
+          </button>
+        </div>
+
+        <div className="border-t border-border pt-4">
+          <label className="block text-xs text-ink-muted">
+            残り個数を直接なおす(数え間違いのとき・材料は減りません)
+            <input
+              value={nextStock}
+              onChange={(e) => setNextStock(e.target.value)}
+              type="number"
+              className="mt-1 block w-full rounded border border-border px-2.5 py-1.5 text-sm"
+            />
+          </label>
+          <button
+            onClick={submitCorrection}
+            disabled={pending}
+            className="mt-2 w-full rounded border border-border py-2 text-sm font-medium hover:bg-surface-hover disabled:opacity-50"
+          >
+            残り個数を修正
+          </button>
+        </div>
+
+        <div className="border-t border-border pt-4">
+          <p className="text-xs text-ink-muted">
+            今の設定:{" "}
+            <span className="font-bold text-ink">
+              {menuItem.stockMode === "PREPARED" ? "作り置き(個数で管理)" : "注文後に作る"}
+            </span>
+          </p>
+          <button
+            onClick={() => {
+              onToggleMode();
+              onClose();
+            }}
+            className="mt-2 w-full rounded border border-border py-2 text-xs hover:bg-surface-hover"
+          >
+            {menuItem.stockMode === "PREPARED"
+              ? "「注文後に作る」に戻す"
+              : "「作り置き」に切り替える"}
+          </button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

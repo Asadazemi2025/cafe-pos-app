@@ -11,12 +11,14 @@ import {
   Calculator,
   Receipt,
   BarChart3,
+  TrendingUp,
   LogOut,
 } from "lucide-react";
 
 const NAV = [
   { href: "/", label: "ダッシュボード", icon: LayoutDashboard },
   { href: "/register", label: "レジ", icon: ShoppingCart },
+  { href: "/breakeven", label: "損益分岐点", icon: TrendingUp },
   { href: "/ingredients", label: "材料・仕入れ", icon: Wheat },
   { href: "/menu-items", label: "メニュー・レシピ", icon: Coffee },
   { href: "/daily", label: "レジ初め・締め", icon: Calculator },

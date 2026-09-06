@@ -11,6 +11,8 @@ export type RegisterMenuItemDTO = {
   name: string;
   category: string | null;
   salePrice: number;
+  stockMode: "MADE_TO_ORDER" | "PREPARED";
+  preparedStock: number;
 };
 
 export async function getRegisterMenu(): Promise<RegisterMenuItemDTO[]> {
@@ -24,6 +26,8 @@ export async function getRegisterMenu(): Promise<RegisterMenuItemDTO[]> {
     name: i.name,
     category: i.category,
     salePrice: i.salePrice.toNumber(),
+    stockMode: i.stockMode,
+    preparedStock: i.preparedStock,
   }));
 }
 

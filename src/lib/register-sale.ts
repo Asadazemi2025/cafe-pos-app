@@ -43,11 +43,42 @@ export async function performSale(input: {
           throw new Error("存在しないメニューが含まれています。");
         }
 
-        const lineUsages: { menuItemId: string; quantity: number; usage: IngredientUsageLine[] }[] = [];
+        // 仕込み済みメニュー(PREPARED)は材料ではなく残り個数を減らす。
+        // 材料は仕込み時にすでに消費しているため、ここでは触らない。
+        const lineUsages: {
+          menuItemId: string;
+          quantity: number;
+          usage: IngredientUsageLine[];
+          fromPreparedStock: boolean;
+        }[] = [];
         const totalUsage = new Map<string, number>();
+
         for (const line of merged) {
+          const menuItem = menuItems.find((m) => m.id === line.menuItemId)!;
+          if (menuItem.stockMode === "PREPARED") {
+            if (menuItem.preparedStock < line.quantity) {
+              throw new Error(`「${menuItem.name}」の残りが足りません(残り${menuItem.preparedStock}個)。`);
+            }
+            await tx.menuItem.update({
+              where: { id: menuItem.id },
+              data: { preparedStock: { decrement: line.quantity } },
+            });
+            lineUsages.push({
+              menuItemId: line.menuItemId,
+              quantity: line.quantity,
+              usage: [],
+              fromPreparedStock: true,
+            });
+            continue;
+          }
+
           const usage = await expandRecipeUsage(line.menuItemId, line.quantity, tx);
-          lineUsages.push({ menuItemId: line.menuItemId, quantity: line.quantity, usage });
+          lineUsages.push({
+            menuItemId: line.menuItemId,
+            quantity: line.quantity,
+            usage,
+            fromPreparedStock: false,
+          });
           for (const u of usage) {
             totalUsage.set(u.ingredientId, (totalUsage.get(u.ingredientId) ?? 0) + u.qty);
           }
@@ -91,6 +122,7 @@ export async function performSale(input: {
             quantity: line.quantity,
             amount,
             ingredientUsage: line.usage as unknown as Prisma.InputJsonValue,
+            fromPreparedStock: line.fromPreparedStock,
           });
         }
 
@@ -136,6 +168,16 @@ export async function voidSale(saleId: string): Promise<void> {
 
     const restock = new Map<string, number>();
     for (const item of sale.items) {
+      // 仕込み在庫から売れた行は、材料ではなくメニューの残り個数を戻す
+      if (item.fromPreparedStock) {
+        if (item.menuItemId) {
+          await tx.menuItem.update({
+            where: { id: item.menuItemId },
+            data: { preparedStock: { increment: item.quantity } },
+          });
+        }
+        continue;
+      }
       const usage = (item.ingredientUsage as unknown as IngredientUsageLine[]) ?? [];
       for (const u of usage) {
         restock.set(u.ingredientId, (restock.get(u.ingredientId) ?? 0) + u.qty);

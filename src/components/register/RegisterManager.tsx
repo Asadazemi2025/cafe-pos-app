@@ -37,12 +37,18 @@ export function RegisterManager({
   const total = lines.reduce((sum, l) => sum + l.item.salePrice * l.quantity, 0);
   const itemCount = lines.reduce((sum, l) => sum + l.quantity, 0);
 
-  function add(id: string) {
+  function add(id: string, quantity = 1) {
     if (readOnly) {
       toast.error("閲覧モードのため、操作できません。");
       return;
     }
-    setCart((cur) => ({ ...cur, [id]: (cur[id] ?? 0) + 1 }));
+    const item = menuItems.find((m) => m.id === id);
+    const next = (cart[id] ?? 0) + quantity;
+    if (item && item.stockMode === "PREPARED" && next > item.preparedStock) {
+      toast.error(`「${item.name}」の残りは${item.preparedStock}個です。`);
+      return;
+    }
+    setCart((cur) => ({ ...cur, [id]: next }));
   }
   function decrement(id: string) {
     if (readOnly) return;
@@ -50,6 +56,18 @@ export function RegisterManager({
       const next = Math.max(0, (cur[id] ?? 0) - 1);
       return { ...cur, [id]: next };
     });
+  }
+
+  // カートの個数を直接入力する(まとめて何個、を素早く入れられるように)
+  function setQuantity(id: string, value: string) {
+    if (readOnly) return;
+    const item = menuItems.find((m) => m.id === id);
+    let next = Math.max(0, Math.round(Number(value) || 0));
+    if (item && item.stockMode === "PREPARED" && next > item.preparedStock) {
+      toast.error(`「${item.name}」の残りは${item.preparedStock}個です。`);
+      next = item.preparedStock;
+    }
+    setCart((cur) => ({ ...cur, [id]: next }));
   }
 
   async function handleVoid(saleId: string) {
@@ -71,16 +89,43 @@ export function RegisterManager({
     <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
       <div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => add(item.id)}
-              className="rounded-lg border border-border bg-surface p-3 text-left shadow-card transition-transform hover:-translate-y-0.5 hover:shadow-card-hover"
-            >
-              <p className="text-sm font-bold">{item.name}</p>
-              <p className="num mt-1 text-xs text-ink-muted">{yen(item.salePrice)}</p>
-            </button>
-          ))}
+          {menuItems.map((item) => {
+            const soldOut = item.stockMode === "PREPARED" && item.preparedStock <= 0;
+            return (
+              <div
+                key={item.id}
+                className={`rounded-lg border border-border bg-surface p-3 shadow-card ${
+                  soldOut ? "opacity-50" : ""
+                }`}
+              >
+                <button
+                  onClick={() => add(item.id)}
+                  disabled={soldOut}
+                  className="w-full text-left"
+                >
+                  <p className="text-sm font-bold">{item.name}</p>
+                  <p className="num mt-1 text-xs text-ink-muted">{yen(item.salePrice)}</p>
+                  {item.stockMode === "PREPARED" && (
+                    <p className="num mt-0.5 text-[11px] text-ink-muted">
+                      {soldOut ? "売り切れ" : `残り${item.preparedStock}個`}
+                    </p>
+                  )}
+                </button>
+                <div className="mt-2 flex gap-1">
+                  {[2, 3, 5].map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => add(item.id, n)}
+                      disabled={soldOut}
+                      className="flex-1 rounded border border-border py-0.5 text-[11px] text-ink-muted hover:bg-surface-hover disabled:opacity-40"
+                    >
+                      +{n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
           {menuItems.length === 0 && (
             <p className="col-span-full py-8 text-center text-sm text-ink-muted">
               レジに表示するメニューがまだありません。「メニュー・レシピ」から登録してください。
@@ -145,7 +190,14 @@ export function RegisterManager({
                   >
                     <Minus size={12} />
                   </button>
-                  <span className="num w-4 text-center">{l.quantity}</span>
+                  <input
+                    value={l.quantity}
+                    onChange={(e) => setQuantity(l.menuItemId, e.target.value)}
+                    type="number"
+                    min={0}
+                    className="num w-12 rounded border border-border px-1 py-0.5 text-center text-sm"
+                  />
+                  <span className="text-xs text-ink-muted">個</span>
                   <button
                     onClick={() => add(l.menuItemId)}
                     className="rounded border border-border p-0.5 hover:bg-surface-hover"
