@@ -7,6 +7,7 @@ import { checkout, voidSaleAction, type RegisterMenuItemDTO, type RecentSaleDTO 
 import { yen } from "@/lib/money";
 import { Modal } from "@/components/ui/Modal";
 import { CardPaymentDialog } from "@/components/register/CardPaymentDialog";
+import { Receipt, type ReceiptLine } from "@/components/register/Receipt";
 import { Minus, Plus } from "lucide-react";
 
 export function RegisterManager({
@@ -199,6 +200,11 @@ export function RegisterManager({
         <PaymentDialog
           total={total}
           items={lines.map((l) => ({ menuItemId: l.menuItemId, quantity: l.quantity }))}
+          receiptLines={lines.map((l) => ({
+            name: l.item.name,
+            quantity: l.quantity,
+            unitPrice: l.item.salePrice,
+          }))}
           onClose={() => setPayMode(null)}
           onSuccess={() => {
             setCart({});
@@ -211,6 +217,11 @@ export function RegisterManager({
         <CardPaymentDialog
           total={total}
           items={lines.map((l) => ({ menuItemId: l.menuItemId, quantity: l.quantity }))}
+          receiptLines={lines.map((l) => ({
+            name: l.item.name,
+            quantity: l.quantity,
+            unitPrice: l.item.salePrice,
+          }))}
           onClose={() => setPayMode(null)}
           onSuccess={() => {
             setCart({});
@@ -226,17 +237,21 @@ export function RegisterManager({
 function PaymentDialog({
   total,
   items,
+  receiptLines,
   onClose,
   onSuccess,
 }: {
   total: number;
   items: { menuItemId: string; quantity: number }[];
+  receiptLines: ReceiptLine[];
   onClose: () => void;
   onSuccess: () => void;
 }) {
   const [received, setReceived] = useState("");
   const [pending, setPending] = useState(false);
-  const [done, setDone] = useState<{ change: number } | null>(null);
+  const [done, setDone] = useState<{ change: number; receivedAmount: number; at: Date } | null>(
+    null,
+  );
 
   const receivedNum = Number(received || 0);
   const change = receivedNum - total;
@@ -254,7 +269,11 @@ function PaymentDialog({
         toast.error(result.message);
         return;
       }
-      setDone({ change: receivedNum > 0 ? change : 0 });
+      setDone({
+        change: receivedNum > 0 ? change : 0,
+        receivedAmount: receivedNum > 0 ? receivedNum : total,
+        at: new Date(),
+      });
     } finally {
       setPending(false);
     }
@@ -268,9 +287,25 @@ function PaymentDialog({
           {done.change > 0 && (
             <p className="num text-sm text-ink-muted">おつり {yen(done.change)}</p>
           )}
+          <div className="rounded border border-border bg-bg p-3">
+            <Receipt
+              lines={receiptLines}
+              total={total}
+              paymentMethod="CASH"
+              received={done.receivedAmount}
+              change={done.change}
+              occurredAt={done.at}
+            />
+          </div>
+          <button
+            onClick={() => window.print()}
+            className="w-full rounded-full border border-accent py-2.5 text-sm font-medium text-accent hover:bg-accent-weak"
+          >
+            レシートを印刷
+          </button>
           <button
             onClick={onSuccess}
-            className="mt-2 w-full rounded-full bg-accent py-2.5 text-sm font-medium text-white hover:opacity-90"
+            className="w-full rounded-full bg-accent py-2.5 text-sm font-medium text-white hover:opacity-90"
           >
             レジへ戻る
           </button>

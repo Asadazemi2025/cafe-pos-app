@@ -10,6 +10,7 @@ import {
   Coffee,
   Calculator,
   Receipt,
+  BarChart3,
   LogOut,
 } from "lucide-react";
 
@@ -20,6 +21,7 @@ const NAV = [
   { href: "/menu-items", label: "メニュー・レシピ", icon: Coffee },
   { href: "/daily", label: "レジ初め・締め", icon: Calculator },
   { href: "/expenses", label: "経費", icon: Receipt },
+  { href: "/analytics", label: "分析", icon: BarChart3 },
 ];
 
 export function Sidebar() {

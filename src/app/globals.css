@@ -89,3 +89,20 @@ select,
 textarea {
   font-size: 16px !important;
 }
+
+/* レシート印刷: .receipt-print要素だけを印刷し、それ以外は隠す */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .receipt-print,
+  .receipt-print * {
+    visibility: visible;
+  }
+  .receipt-print {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+}

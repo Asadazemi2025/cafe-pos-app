@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { createCardPaymentIntent, finalizeCardSale } from "@/app/(app)/register/stripe-actions";
 import type { CartLine } from "@/lib/register-sale";
 import { Modal } from "@/components/ui/Modal";
+import { Receipt, type ReceiptLine } from "@/components/register/Receipt";
 import { yen } from "@/lib/money";
 
 // 開発中は実機のカードリーダーがなくても動作確認できるよう、
@@ -40,16 +41,19 @@ type Status = "connecting" | "ready" | "processing" | "error";
 export function CardPaymentDialog({
   total,
   items,
+  receiptLines,
   onClose,
   onSuccess,
 }: {
   total: number;
   items: CartLine[];
+  receiptLines: ReceiptLine[];
   onClose: () => void;
   onSuccess: () => void;
 }) {
   const [status, setStatus] = useState<Status>("connecting");
   const [statusText, setStatusText] = useState("カードリーダーに接続しています…");
+  const [done, setDone] = useState<Date | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
 
   useEffect(() => {
@@ -124,11 +128,36 @@ export function CardPaymentDialog({
       }
 
       toast.success("カード決済が完了しました。");
-      onSuccess();
+      setDone(new Date());
     } catch (e) {
       setStatus("error");
       setStatusText(e instanceof Error ? e.message : "決済に失敗しました。");
     }
+  }
+
+  if (done) {
+    return (
+      <Modal open onOpenChange={(o) => !o && onSuccess()} title="お会計完了">
+        <div className="space-y-3 text-center">
+          <p className="text-lg font-bold text-success">✓ カード決済が完了しました</p>
+          <div className="rounded border border-border bg-bg p-3">
+            <Receipt lines={receiptLines} total={total} paymentMethod="CARD" occurredAt={done} />
+          </div>
+          <button
+            onClick={() => window.print()}
+            className="w-full rounded-full border border-accent py-2.5 text-sm font-medium text-accent hover:bg-accent-weak"
+          >
+            レシートを印刷
+          </button>
+          <button
+            onClick={onSuccess}
+            className="w-full rounded-full bg-accent py-2.5 text-sm font-medium text-white hover:opacity-90"
+          >
+            レジへ戻る
+          </button>
+        </div>
+      </Modal>
+    );
   }
 
   return (

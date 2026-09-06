@@ -1,8 +1,10 @@
-import { getDashboardSummary } from "./dashboard-actions";
+import Link from "next/link";
+import { AlertTriangle } from "lucide-react";
+import { getDashboardSummary, getLowStockIngredients } from "./dashboard-actions";
 import { yen } from "@/lib/money";
 
 export default async function DashboardPage() {
-  const s = await getDashboardSummary();
+  const [s, lowStock] = await Promise.all([getDashboardSummary(), getLowStockIngredients()]);
 
   const cards = [
     { label: "本日の売上", value: s.salesTotal },
@@ -44,6 +46,33 @@ export default async function DashboardPage() {
       </div>
 
       <p className="mt-4 text-xs text-ink-muted">本日の販売点数: {s.itemCount}点</p>
+
+      {lowStock.length > 0 && (
+        <div className="mt-8 max-w-lg rounded-lg border border-warning/30 bg-warning/10 p-4">
+          <div className="flex items-center gap-2 text-sm font-bold text-warning">
+            <AlertTriangle size={16} />
+            在庫が少ない材料
+          </div>
+          <div className="mt-3 space-y-1.5">
+            {lowStock.map((i) => (
+              <div key={i.id} className="flex items-center justify-between text-sm">
+                <span className="text-ink">{i.name}</span>
+                <span className="num text-ink-muted">
+                  残り{i.stock.toLocaleString("ja-JP")}
+                  {i.unit}(目安 {i.lowStockThreshold.toLocaleString("ja-JP")}
+                  {i.unit})
+                </span>
+              </div>
+            ))}
+          </div>
+          <Link
+            href="/ingredients"
+            className="mt-3 inline-block text-xs font-medium text-accent underline"
+          >
+            材料・仕入れページで補充する
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

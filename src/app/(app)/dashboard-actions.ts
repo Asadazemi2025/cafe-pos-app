@@ -15,6 +15,32 @@ export type DashboardSummary = {
   expenseTotal: number;
 };
 
+export type LowStockIngredientDTO = {
+  id: string;
+  name: string;
+  unit: string;
+  stock: number;
+  lowStockThreshold: number;
+};
+
+// lowStockThresholdを設定していて、在庫がそれ以下になっている材料を返す
+export async function getLowStockIngredients(): Promise<LowStockIngredientDTO[]> {
+  requireAuth();
+  const ingredients = await prisma.ingredient.findMany({
+    where: { isTest: false, lowStockThreshold: { not: null } },
+    orderBy: { name: "asc" },
+  });
+  return ingredients
+    .filter((i) => i.lowStockThreshold !== null && i.stock.lte(i.lowStockThreshold))
+    .map((i) => ({
+      id: i.id,
+      name: i.name,
+      unit: i.unit,
+      stock: i.stock.toNumber(),
+      lowStockThreshold: i.lowStockThreshold!.toNumber(),
+    }));
+}
+
 export async function getDashboardSummary(): Promise<DashboardSummary> {
   requireAuth();
   const day = todayJST();
