@@ -24,14 +24,34 @@ const NAV = [
   { href: "/analytics", label: "分析", icon: BarChart3 },
 ];
 
-export function Sidebar() {
+export function Sidebar({
+  currentEvent,
+}: {
+  currentEvent: { id: string; name: string; date: string } | null;
+}) {
   const pathname = usePathname();
 
   return (
     <aside className="flex h-full w-56 shrink-0 flex-col bg-sidebar px-3 py-5 text-sidebar-ink">
-      <div className="px-2.5 pb-5">
+      <div className="px-2.5 pb-4">
         <p className="text-sm font-bold tracking-tight">つむぐカフェ</p>
       </div>
+
+      <Link
+        href="/select-event"
+        className="mb-4 block rounded-lg bg-sidebar-hover px-2.5 py-2 transition-colors hover:opacity-90"
+      >
+        <span className="block text-[10px] text-sidebar-ink-muted">選択中のイベント</span>
+        <span className="block truncate text-xs font-bold">
+          {currentEvent ? currentEvent.name : "未選択"}
+        </span>
+        {currentEvent && (
+          <span className="block text-[10px] text-sidebar-ink-muted">{currentEvent.date}</span>
+        )}
+        <span className="mt-1 block text-[10px] text-sidebar-ink-muted underline">
+          イベントを切り替え
+        </span>
+      </Link>
 
       <nav className="flex flex-1 flex-col gap-1">
         {NAV.map(({ href, label, icon: Icon }) => {

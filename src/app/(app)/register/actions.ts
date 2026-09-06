@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAuth, requireEditAuth } from "@/lib/auth";
+import { requireCurrentEvent } from "@/lib/event";
 import { prisma } from "@/lib/prisma";
 import { performSale, voidSale as voidSaleCore, type CartLine } from "@/lib/register-sale";
 
@@ -37,8 +38,9 @@ export type RecentSaleDTO = {
 
 export async function getRecentSales(): Promise<RecentSaleDTO[]> {
   requireAuth();
+  const eventId = requireCurrentEvent();
   const sales = await prisma.sale.findMany({
-    where: { isTest: false },
+    where: { isTest: false, eventId },
     orderBy: { occurredAt: "desc" },
     take: 15,
   });
@@ -70,6 +72,7 @@ export async function checkout(input: {
     const result = await performSale({
       items: input.items,
       paymentMethod: "CASH",
+      eventId: requireCurrentEvent(),
       clientId: input.clientId ?? null,
     });
     revalidatePath("/register");

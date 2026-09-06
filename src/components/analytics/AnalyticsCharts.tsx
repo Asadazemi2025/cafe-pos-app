@@ -2,37 +2,43 @@
 
 import {
   ResponsiveContainer,
-  LineChart,
-  Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   Tooltip,
+  Legend,
   CartesianGrid,
 } from "recharts";
 import { yen } from "@/lib/money";
-import type { DailyTrendPoint, MenuRankingRow } from "@/app/(app)/analytics/actions";
+import type { EventComparisonRow, MenuRankingRow } from "@/app/(app)/analytics/actions";
 
-export function SalesTrendChart({ data }: { data: DailyTrendPoint[] }) {
+export function EventComparisonChart({ data }: { data: EventComparisonRow[] }) {
   return (
     <div className="rounded-lg border border-border bg-surface p-4 shadow-card">
-      <p className="mb-3 text-sm font-bold">売上・粗利の推移</p>
-      <div style={{ width: "100%", height: 260 }}>
-        <ResponsiveContainer>
-          <LineChart data={data} margin={{ left: 4, right: 12, top: 4, bottom: 0 }}>
-            <CartesianGrid stroke="#e8eaf0" vertical={false} />
-            <XAxis dataKey="day" tick={{ fontSize: 11 }} stroke="#8e94a4" />
-            <YAxis
-              tick={{ fontSize: 11 }}
-              stroke="#8e94a4"
-              tickFormatter={(v) => `¥${(v / 1000).toFixed(0)}k`}
-              width={48}
-            />
-            <Tooltip formatter={(v) => yen(Number(v))} labelFormatter={(l) => `${l}日`} />
-            <Line type="monotone" dataKey="sales" name="売上" stroke="#5b47bd" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="profit" name="粗利" stroke="#22c55e" strokeWidth={2} dot={false} />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+      <p className="mb-3 text-sm font-bold">イベントごとの売上・粗利</p>
+      {data.length === 0 ? (
+        <p className="py-8 text-center text-sm text-ink-muted">まだイベントの実績がありません。</p>
+      ) : (
+        <div style={{ width: "100%", height: 280 }}>
+          <ResponsiveContainer>
+            <BarChart data={data} margin={{ left: 4, right: 12, top: 4, bottom: 0 }}>
+              <CartesianGrid stroke="#e7dfd5" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="#8f8176" />
+              <YAxis
+                tick={{ fontSize: 11 }}
+                stroke="#8f8176"
+                tickFormatter={(v) => `¥${(v / 1000).toFixed(0)}k`}
+                width={52}
+              />
+              <Tooltip formatter={(v) => yen(Number(v))} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Bar dataKey="sales" name="売上" fill="#9e5e28" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="profit" name="粗利" fill="#3a8a4c" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </div>
   );
 }
@@ -68,7 +74,7 @@ export function MenuRankingTable({ data }: { data: MenuRankingRow[] }) {
           {data.length === 0 && (
             <tr>
               <td colSpan={5} className="px-4 py-8 text-center text-sm text-ink-muted">
-                この期間の販売データがありません。
+                このイベントの販売データがまだありません。
               </td>
             </tr>
           )}

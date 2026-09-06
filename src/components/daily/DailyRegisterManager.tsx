@@ -50,7 +50,7 @@ export function DailyRegisterManager({
     if (guardReadOnly()) return;
     setPending(true);
     try {
-      const result = await closeDay(day, Number(closingCash || 0));
+      const result = await closeDay(Number(closingCash || 0));
       setCloseResult(result);
       toast.success("レジ締めを記録しました。");
       router.refresh();
@@ -65,7 +65,7 @@ export function DailyRegisterManager({
     if (guardReadOnly()) return;
     if (!confirm("この日のレジ初め・締めの記録をやり直しますか？")) return;
     try {
-      await resetDay(day);
+      await resetDay();
       setCloseResult(null);
       toast.success("リセットしました。");
       router.refresh();

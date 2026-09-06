@@ -7,6 +7,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ---------- イベント日 ----------
+
+// 出店するイベント1日分。売上・レジ締め・経費はこの単位で分ける。
+// 材料・メニュー・在庫は全イベント共通(前回の余りを次回も使うため)。
+model Event {
+  id        String         @id @default(cuid())
+  name      String
+  date      DateTime       @db.Date
+  createdAt DateTime       @default(now())
+  sales     Sale[]
+  expenses  Expense[]
+  register  DailyRegister?
+
+  @@index([date])
+}
+
 // ---------- 材料・仕入れ ----------
 
 model Ingredient {
@@ -94,6 +110,8 @@ enum PaymentMethod {
 
 model Sale {
   id                    String        @id @default(cuid())
+  eventId               String?
+  event                 Event?        @relation(fields: [eventId], references: [id], onDelete: SetNull)
   totalAmount           Decimal       @db.Decimal(14, 2)
   totalCost             Decimal       @db.Decimal(14, 2)
   itemCount             Int
@@ -106,6 +124,8 @@ model Sale {
   occurredAt            DateTime      @default(now())
   createdAt             DateTime      @default(now())
   items                 SaleItem[]
+
+  @@index([eventId])
 }
 
 model SaleItem {
@@ -127,7 +147,11 @@ model SaleItem {
 
 model DailyRegister {
   id           String    @id @default(cuid())
-  day          String    @unique
+  // 1イベント1回のレジ初め・レジ締め
+  eventId      String?   @unique
+  event        Event?    @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  // 以前の日付キー。表示用のラベルとして残している
+  day          String
   openingCash  Decimal?  @db.Decimal(14, 2)
   openedAt     DateTime?
   closingCash  Decimal?  @db.Decimal(14, 2)
@@ -139,6 +163,8 @@ model DailyRegister {
 
 model Expense {
   id        String   @id @default(cuid())
+  eventId   String?
+  event     Event?   @relation(fields: [eventId], references: [id], onDelete: SetNull)
   name      String
   amount    Decimal  @db.Decimal(14, 2)
   memo      String?
@@ -146,6 +172,8 @@ model Expense {
   isTest    Boolean  @default(false)
   spentOn   DateTime @db.Date
   createdAt DateTime @default(now())
+
+  @@index([eventId])
 }
 
 model AppSetting {

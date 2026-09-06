@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAuth, requireEditAuth } from "@/lib/auth";
+import { requireCurrentEvent } from "@/lib/event";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { jstDayRange } from "@/lib/date";
 import { sumCashCounts, type CashCounts } from "@/lib/denominations";
 
 export type DailyRegisterDTO = {
@@ -38,31 +38,26 @@ function toDTO(row: {
   };
 }
 
-export async function getDailyRegister(day: string): Promise<DailyRegisterDTO | null> {
+// レジ初め・締めは1イベントにつき1回。日付ではなくイベントを鍵にする。
+export async function getDailyRegister(): Promise<DailyRegisterDTO | null> {
   requireAuth();
-  const row = await prisma.dailyRegister.findUnique({ where: { day } });
+  const eventId = requireCurrentEvent();
+  const row = await prisma.dailyRegister.findUnique({ where: { eventId } });
   return toDTO(row);
 }
 
-// その日の現金売上-現金以外を除く経費・仕入は今回は対象外(材料仕入れは仕入れ画面側で管理するため)
-async function cashSalesTotal(day: string): Promise<Prisma.Decimal> {
-  const { start, end } = jstDayRange(day);
+// そのイベントの現金売上(現金過不足の計算に使う。カード決済は現金に影響しないため除外)
+async function cashSalesTotal(eventId: string): Promise<Prisma.Decimal> {
   const agg = await prisma.sale.aggregate({
-    where: {
-      occurredAt: { gte: start, lt: end },
-      paymentMethod: "CASH",
-      voided: false,
-      isTest: false,
-    },
+    where: { eventId, paymentMethod: "CASH", voided: false, isTest: false },
     _sum: { totalAmount: true },
   });
   return agg._sum.totalAmount ?? new Prisma.Decimal(0);
 }
 
-async function expenseTotal(day: string): Promise<Prisma.Decimal> {
-  const { start, end } = jstDayRange(day);
+async function expenseTotal(eventId: string): Promise<Prisma.Decimal> {
   const agg = await prisma.expense.aggregate({
-    where: { spentOn: { gte: start, lt: end }, isTest: false },
+    where: { eventId, isTest: false },
     _sum: { amount: true },
   });
   return agg._sum.amount ?? new Prisma.Decimal(0);
@@ -70,12 +65,14 @@ async function expenseTotal(day: string): Promise<Prisma.Decimal> {
 
 export async function openDay(day: string, cashCounts: CashCounts): Promise<void> {
   requireEditAuth();
+  const eventId = requireCurrentEvent();
   const openingCash = new Prisma.Decimal(sumCashCounts(cashCounts));
 
   await prisma.dailyRegister.upsert({
-    where: { day },
-    create: { day, openingCash, openedAt: new Date(), cashCounts },
+    where: { eventId },
+    create: { eventId, day, openingCash, openedAt: new Date(), cashCounts },
     update: {
+      day,
       openingCash,
       openedAt: new Date(),
       cashCounts,
@@ -88,40 +85,45 @@ export async function openDay(day: string, cashCounts: CashCounts): Promise<void
 }
 
 export async function closeDay(
-  day: string,
   closingCash: number,
 ): Promise<{ diff: number; expectedCash: number }> {
   requireEditAuth();
-  const register = await prisma.dailyRegister.findUnique({ where: { day } });
+  const eventId = requireCurrentEvent();
+  const register = await prisma.dailyRegister.findUnique({ where: { eventId } });
   if (!register || register.openingCash === null) {
     throw new Error("先に「レジ初め」を行ってください。");
   }
 
-  const sales = await cashSalesTotal(day);
-  const expenses = await expenseTotal(day);
+  const sales = await cashSalesTotal(eventId);
+  const expenses = await expenseTotal(eventId);
   const expectedCash = register.openingCash.add(sales).sub(expenses);
   const closingDecimal = new Prisma.Decimal(closingCash);
 
   await prisma.dailyRegister.update({
-    where: { day },
+    where: { eventId },
     data: { closingCash: closingDecimal, expectedCash, closedAt: new Date() },
   });
 
   revalidatePath("/daily");
-  return { diff: closingDecimal.sub(expectedCash).toNumber(), expectedCash: expectedCash.toNumber() };
+  return {
+    diff: closingDecimal.sub(expectedCash).toNumber(),
+    expectedCash: expectedCash.toNumber(),
+  };
 }
 
-export async function resetDay(day: string): Promise<void> {
+export async function resetDay(): Promise<void> {
   requireEditAuth();
-  await prisma.dailyRegister.deleteMany({ where: { day } });
+  const eventId = requireCurrentEvent();
+  await prisma.dailyRegister.deleteMany({ where: { eventId } });
   revalidatePath("/daily");
 }
 
-export async function getCurrentExpectedCash(day: string): Promise<number | null> {
+export async function getCurrentExpectedCash(): Promise<number | null> {
   requireAuth();
-  const register = await prisma.dailyRegister.findUnique({ where: { day } });
+  const eventId = requireCurrentEvent();
+  const register = await prisma.dailyRegister.findUnique({ where: { eventId } });
   if (!register || register.openingCash === null) return null;
-  const sales = await cashSalesTotal(day);
-  const expenses = await expenseTotal(day);
+  const sales = await cashSalesTotal(eventId);
+  const expenses = await expenseTotal(eventId);
   return register.openingCash.add(sales).sub(expenses).toNumber();
 }

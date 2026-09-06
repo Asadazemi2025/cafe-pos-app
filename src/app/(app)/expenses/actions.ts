@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAuth, requireEditAuth } from "@/lib/auth";
+import { requireCurrentEvent } from "@/lib/event";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 
@@ -15,8 +16,9 @@ export type ExpenseDTO = {
 
 export async function getExpenses(limit = 30): Promise<ExpenseDTO[]> {
   requireAuth();
+  const eventId = requireCurrentEvent();
   const expenses = await prisma.expense.findMany({
-    where: { isTest: false },
+    where: { isTest: false, eventId },
     orderBy: { spentOn: "desc" },
     take: limit,
   });
@@ -41,6 +43,7 @@ export async function createExpense(input: {
 
   await prisma.expense.create({
     data: {
+      eventId: requireCurrentEvent(),
       name: input.name.trim(),
       amount: new Prisma.Decimal(input.amount),
       memo: input.memo || null,

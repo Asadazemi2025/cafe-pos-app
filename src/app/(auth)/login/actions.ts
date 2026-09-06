@@ -21,7 +21,7 @@ export async function login(formData: FormData): Promise<LoginState | void> {
     path: "/",
   });
 
-  redirect("/");
+  redirect("/select-event");
 }
 
 export async function enterViewMode(): Promise<void> {
@@ -32,5 +32,5 @@ export async function enterViewMode(): Promise<void> {
     maxAge: 60 * 60 * 24 * 30,
     path: "/",
   });
-  redirect("/");
+  redirect("/select-event");
 }

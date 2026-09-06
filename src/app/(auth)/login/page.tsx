@@ -17,7 +17,7 @@ export default function LoginPage() {
     setViewPending(true);
     await enterViewMode();
     setViewPending(false);
-    router.push("/");
+    router.push("/select-event");
     router.refresh();
   }
 
@@ -36,7 +36,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/");
+    router.push("/select-event");
     router.refresh();
   }
 

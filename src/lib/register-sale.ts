@@ -21,6 +21,7 @@ function mergeCartLines(items: CartLine[]): CartLine[] {
 export async function performSale(input: {
   items: CartLine[];
   paymentMethod: PaymentMethod;
+  eventId: string;
   stripePaymentIntentId?: string | null;
   clientId?: string | null;
 }): Promise<{ saleId: string; duplicate: boolean }> {
@@ -95,6 +96,7 @@ export async function performSale(input: {
 
         const sale = await tx.sale.create({
           data: {
+            eventId: input.eventId,
             totalAmount,
             totalCost,
             itemCount,

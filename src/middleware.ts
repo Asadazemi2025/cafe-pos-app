@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 
 const SESSION_COOKIE = "team_session";
 const VIEWER_TOKEN = "viewer";
+const CURRENT_EVENT_COOKIE = "current_event";
 
 function isAuthedRequest(req: NextRequest): boolean {
   const token = req.cookies.get(SESSION_COOKIE)?.value;
@@ -16,13 +17,20 @@ export function middleware(req: NextRequest) {
 
   if (pathname === "/login") {
     if (authed) {
-      return NextResponse.redirect(new URL("/", req.url));
+      return NextResponse.redirect(new URL("/select-event", req.url));
     }
     return NextResponse.next();
   }
 
   if (!authed) {
     return NextResponse.redirect(new URL("/login", req.url));
+  }
+
+  // ログイン済みでもイベント日を選ぶまでは、どのデータを触っているか曖昧になるため
+  // イベント選択画面へ寄せる
+  const hasEvent = Boolean(req.cookies.get(CURRENT_EVENT_COOKIE)?.value);
+  if (!hasEvent && pathname !== "/select-event") {
+    return NextResponse.redirect(new URL("/select-event", req.url));
   }
 
   return NextResponse.next();

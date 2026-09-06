@@ -1,13 +1,18 @@
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import { getDashboardSummary, getLowStockIngredients } from "./dashboard-actions";
+import { getCurrentEvent } from "@/lib/event";
 import { yen } from "@/lib/money";
 
 export default async function DashboardPage() {
-  const [s, lowStock] = await Promise.all([getDashboardSummary(), getLowStockIngredients()]);
+  const [s, lowStock, currentEvent] = await Promise.all([
+    getDashboardSummary(),
+    getLowStockIngredients(),
+    getCurrentEvent(),
+  ]);
 
   const cards = [
-    { label: "本日の売上", value: s.salesTotal },
+    { label: "売上", value: s.salesTotal },
     { label: "原価", value: s.costTotal },
     { label: "経費", value: s.expenseTotal },
     { label: "粗利", value: s.profit, highlight: true },
@@ -16,7 +21,9 @@ export default async function DashboardPage() {
   return (
     <div>
       <h1 className="text-xl font-bold tracking-tight">ダッシュボード</h1>
-      <p className="mt-1 text-sm text-ink-muted">{s.day} の実績</p>
+      <p className="mt-1 text-sm text-ink-muted">
+        {currentEvent ? `${currentEvent.name}(${currentEvent.date})` : "イベント未選択"} の実績
+      </p>
 
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {cards.map((c) => (
@@ -45,7 +52,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <p className="mt-4 text-xs text-ink-muted">本日の販売点数: {s.itemCount}点</p>
+      <p className="mt-4 text-xs text-ink-muted">このイベントの販売点数: {s.itemCount}点</p>
 
       {lowStock.length > 0 && (
         <div className="mt-8 max-w-lg rounded-lg border border-warning/30 bg-warning/10 p-4">
