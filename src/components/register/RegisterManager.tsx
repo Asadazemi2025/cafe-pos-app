@@ -8,7 +8,24 @@ import { yen } from "@/lib/money";
 import { Modal } from "@/components/ui/Modal";
 import { CardPaymentDialog } from "@/components/register/CardPaymentDialog";
 import { Receipt, type ReceiptLine } from "@/components/register/Receipt";
-import { Minus, Plus } from "lucide-react";
+import { Minus, Plus, X, CreditCard, Banknote } from "lucide-react";
+
+// カテゴリごとにタイルの色を変える(エアレジのように、色で商品を探せるように)
+const TILE_COLORS = [
+  { bg: "#fdeadb", border: "#f3c79b" },
+  { bg: "#dff0fb", border: "#a8d4ee" },
+  { bg: "#e2f5e6", border: "#a9dcb5" },
+  { bg: "#fce9f1", border: "#f0b9d1" },
+  { bg: "#ece7fa", border: "#c3b6ec" },
+  { bg: "#fff5d6", border: "#efd88f" },
+];
+
+const ALL = "__all__";
+
+function colorForCategory(category: string | null, categories: string[]) {
+  const idx = category ? categories.indexOf(category) : -1;
+  return TILE_COLORS[(idx < 0 ? 0 : idx) % TILE_COLORS.length];
+}
 
 export function RegisterManager({
   menuItems,
@@ -22,6 +39,21 @@ export function RegisterManager({
   const router = useRouter();
   const [cart, setCart] = useState<Record<string, number>>({});
   const [payMode, setPayMode] = useState<"cash" | "card" | null>(null);
+  const [activeCategory, setActiveCategory] = useState<string>(ALL);
+  const [showRecent, setShowRecent] = useState(false);
+
+  const categories = useMemo(
+    () => [...new Set(menuItems.map((m) => m.category).filter((c): c is string => !!c))],
+    [menuItems],
+  );
+
+  const visibleItems = useMemo(
+    () =>
+      activeCategory === ALL
+        ? menuItems
+        : menuItems.filter((m) => (m.category ?? "") === activeCategory),
+    [menuItems, activeCategory],
+  );
 
   const lines = useMemo(
     () =>
@@ -50,12 +82,15 @@ export function RegisterManager({
     }
     setCart((cur) => ({ ...cur, [id]: next }));
   }
+
   function decrement(id: string) {
     if (readOnly) return;
-    setCart((cur) => {
-      const next = Math.max(0, (cur[id] ?? 0) - 1);
-      return { ...cur, [id]: next };
-    });
+    setCart((cur) => ({ ...cur, [id]: Math.max(0, (cur[id] ?? 0) - 1) }));
+  }
+
+  function removeLine(id: string) {
+    if (readOnly) return;
+    setCart((cur) => ({ ...cur, [id]: 0 }));
   }
 
   // カートの個数を直接入力する(まとめて何個、を素早く入れられるように)
@@ -68,6 +103,13 @@ export function RegisterManager({
       next = item.preparedStock;
     }
     setCart((cur) => ({ ...cur, [id]: next }));
+  }
+
+  function clearCart() {
+    if (readOnly) return;
+    if (lines.length === 0) return;
+    if (!confirm("カートを空にしますか？")) return;
+    setCart({});
   }
 
   async function handleVoid(saleId: string) {
@@ -85,61 +127,204 @@ export function RegisterManager({
     router.refresh();
   }
 
+  const receiptLines: ReceiptLine[] = lines.map((l) => ({
+    name: l.item.name,
+    quantity: l.quantity,
+    unitPrice: l.item.salePrice,
+  }));
+  const cartItems = lines.map((l) => ({ menuItemId: l.menuItemId, quantity: l.quantity }));
+
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-      <div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-          {menuItems.map((item) => {
-            const soldOut = item.stockMode === "PREPARED" && item.preparedStock <= 0;
-            return (
-              <div
-                key={item.id}
-                className={`rounded-lg border border-border bg-surface p-3 shadow-card ${
-                  soldOut ? "opacity-50" : ""
-                }`}
-              >
+    <div className="flex h-[calc(100vh-8rem)] gap-4">
+      {/* 商品側 */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* カテゴリタブ */}
+        <div className="flex flex-wrap items-center gap-1.5 pb-3">
+          <CategoryTab
+            label="すべて"
+            active={activeCategory === ALL}
+            onClick={() => setActiveCategory(ALL)}
+          />
+          {categories.map((c) => (
+            <CategoryTab
+              key={c}
+              label={c}
+              active={activeCategory === c}
+              onClick={() => setActiveCategory(c)}
+            />
+          ))}
+          <button
+            onClick={() => setShowRecent(true)}
+            className="ml-auto rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-ink-muted hover:bg-surface-hover"
+          >
+            直近の取引
+          </button>
+        </div>
+
+        {/* 商品タイル */}
+        <div className="min-h-0 flex-1 overflow-y-auto rounded-xl bg-surface-hover/60 p-3">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4">
+            {visibleItems.map((item) => {
+              const soldOut = item.stockMode === "PREPARED" && item.preparedStock <= 0;
+              const color = colorForCategory(item.category, categories);
+              const inCart = cart[item.id] ?? 0;
+              return (
                 <button
+                  key={item.id}
                   onClick={() => add(item.id)}
                   disabled={soldOut}
-                  className="w-full text-left"
+                  style={{
+                    backgroundColor: soldOut ? "#eeeae5" : color.bg,
+                    borderColor: soldOut ? "#ddd6ce" : color.border,
+                  }}
+                  className="relative flex h-28 flex-col justify-between rounded-xl border-2 p-3 text-left transition-transform active:scale-[0.97] disabled:cursor-not-allowed"
                 >
-                  <p className="text-sm font-bold">{item.name}</p>
-                  <p className="num mt-1 text-xs text-ink-muted">{yen(item.salePrice)}</p>
-                  {item.stockMode === "PREPARED" && (
-                    <p className="num mt-0.5 text-[11px] text-ink-muted">
-                      {soldOut ? "売り切れ" : `残り${item.preparedStock}個`}
-                    </p>
+                  {inCart > 0 && (
+                    <span className="absolute -right-1.5 -top-1.5 flex h-6 min-w-6 items-center justify-center rounded-full bg-accent px-1.5 text-xs font-bold text-white shadow">
+                      {inCart}
+                    </span>
                   )}
+                  <span className="line-clamp-2 text-[15px] font-bold leading-tight text-ink">
+                    {item.name}
+                  </span>
+                  <span>
+                    <span className="num block text-base font-bold text-ink">
+                      {yen(item.salePrice)}
+                    </span>
+                    {item.stockMode === "PREPARED" && (
+                      <span className="num block text-[11px] text-ink-muted">
+                        {soldOut ? "売り切れ" : `残り${item.preparedStock}`}
+                      </span>
+                    )}
+                  </span>
                 </button>
-                <div className="mt-2 flex gap-1">
-                  {[2, 3, 5].map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => add(item.id, n)}
-                      disabled={soldOut}
-                      className="flex-1 rounded border border-border py-0.5 text-[11px] text-ink-muted hover:bg-surface-hover disabled:opacity-40"
-                    >
-                      +{n}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-          {menuItems.length === 0 && (
-            <p className="col-span-full py-8 text-center text-sm text-ink-muted">
-              レジに表示するメニューがまだありません。「メニュー・レシピ」から登録してください。
+              );
+            })}
+            {visibleItems.length === 0 && (
+              <p className="col-span-full py-12 text-center text-sm text-ink-muted">
+                表示できるメニューがありません。「メニュー・レシピ」から登録してください。
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 注文パネル */}
+      <div className="flex w-[340px] shrink-0 flex-col rounded-xl border border-border bg-surface shadow-card">
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <span className="text-sm font-bold">ご注文</span>
+          <button
+            onClick={clearCart}
+            className="text-xs text-ink-muted underline hover:text-danger"
+          >
+            クリア
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+          {lines.length === 0 ? (
+            <p className="py-12 text-center text-sm text-ink-muted">
+              商品をタップしてください
             </p>
+          ) : (
+            <div className="space-y-1">
+              {lines.map((l) => (
+                <div key={l.menuItemId} className="rounded-lg px-2 py-2 hover:bg-surface-hover">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-sm font-medium leading-tight">{l.item.name}</span>
+                    <button
+                      onClick={() => removeLine(l.menuItemId)}
+                      className="shrink-0 rounded p-0.5 text-ink-muted hover:text-danger"
+                      aria-label="削除"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                  <div className="mt-1.5 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => decrement(l.menuItemId)}
+                        className="flex h-7 w-7 items-center justify-center rounded-md border border-border hover:bg-surface-hover"
+                      >
+                        <Minus size={13} />
+                      </button>
+                      <input
+                        value={l.quantity}
+                        onChange={(e) => setQuantity(l.menuItemId, e.target.value)}
+                        type="number"
+                        min={0}
+                        className="num h-7 w-12 rounded-md border border-border text-center text-sm"
+                      />
+                      <button
+                        onClick={() => add(l.menuItemId)}
+                        className="flex h-7 w-7 items-center justify-center rounded-md border border-border hover:bg-surface-hover"
+                      >
+                        <Plus size={13} />
+                      </button>
+                    </div>
+                    <span className="num text-sm font-bold">
+                      {yen(l.item.salePrice * l.quantity)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </div>
 
-        <div className="mt-8">
-          <p className="mb-2 text-sm font-bold">直近の取引</p>
-          <div className="space-y-1.5">
+        <div className="border-t border-border px-4 py-3">
+          <div className="flex items-center justify-between text-xs text-ink-muted">
+            <span>点数</span>
+            <span className="num">{itemCount}点</span>
+          </div>
+          <div className="mt-1 flex items-end justify-between">
+            <span className="text-sm font-bold">合計</span>
+            <span className="num text-3xl font-bold tracking-tight">{yen(total)}</span>
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              onClick={() => {
+                if (readOnly) {
+                  toast.error("閲覧モードのため、会計できません。");
+                  return;
+                }
+                if (lines.length === 0) return;
+                setPayMode("card");
+              }}
+              disabled={lines.length === 0}
+              className="flex items-center justify-center gap-1.5 rounded-lg border-2 border-accent py-3 text-sm font-bold text-accent hover:bg-accent-weak disabled:opacity-40"
+            >
+              <CreditCard size={16} />
+              カード
+            </button>
+            <button
+              onClick={() => {
+                if (readOnly) {
+                  toast.error("閲覧モードのため、会計できません。");
+                  return;
+                }
+                if (lines.length === 0) return;
+                setPayMode("cash");
+              }}
+              disabled={lines.length === 0}
+              className="flex items-center justify-center gap-1.5 rounded-lg py-3 text-sm font-bold text-white shadow-card disabled:opacity-40"
+              style={{ backgroundColor: "#ef7b10" }}
+            >
+              <Banknote size={16} />
+              現金で会計
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {showRecent && (
+        <Modal open onOpenChange={(o) => !o && setShowRecent(false)} title="直近の取引">
+          <div className="max-h-[60vh] space-y-1.5 overflow-y-auto">
             {recentSales.map((s) => (
               <div
                 key={s.id}
-                className={`flex items-center justify-between rounded border border-border bg-surface px-3 py-2 text-sm ${
+                className={`flex items-center justify-between rounded border border-border px-3 py-2 text-sm ${
                   s.voided ? "opacity-50" : ""
                 }`}
               >
@@ -168,95 +353,17 @@ export function RegisterManager({
               </div>
             ))}
             {recentSales.length === 0 && (
-              <p className="py-4 text-center text-xs text-ink-muted">まだ取引がありません。</p>
+              <p className="py-6 text-center text-xs text-ink-muted">まだ取引がありません。</p>
             )}
           </div>
-        </div>
-      </div>
-
-      <div className="rounded-lg border border-border bg-surface p-4 shadow-card">
-        <p className="mb-3 text-sm font-bold">カート</p>
-        {lines.length === 0 ? (
-          <p className="py-6 text-center text-sm text-ink-muted">商品をタップして追加してください</p>
-        ) : (
-          <div className="space-y-2">
-            {lines.map((l) => (
-              <div key={l.menuItemId} className="flex items-center justify-between text-sm">
-                <span>{l.item.name}</span>
-                <span className="flex items-center gap-2">
-                  <button
-                    onClick={() => decrement(l.menuItemId)}
-                    className="rounded border border-border p-0.5 hover:bg-surface-hover"
-                  >
-                    <Minus size={12} />
-                  </button>
-                  <input
-                    value={l.quantity}
-                    onChange={(e) => setQuantity(l.menuItemId, e.target.value)}
-                    type="number"
-                    min={0}
-                    className="num w-12 rounded border border-border px-1 py-0.5 text-center text-sm"
-                  />
-                  <span className="text-xs text-ink-muted">個</span>
-                  <button
-                    onClick={() => add(l.menuItemId)}
-                    className="rounded border border-border p-0.5 hover:bg-surface-hover"
-                  >
-                    <Plus size={12} />
-                  </button>
-                  <span className="num w-16 text-right">{yen(l.item.salePrice * l.quantity)}</span>
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
-          <span className="text-sm font-bold">合計({itemCount}点)</span>
-          <span className="num text-lg font-bold">{yen(total)}</span>
-        </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <button
-            onClick={() => {
-              if (readOnly) {
-                toast.error("閲覧モードのため、会計できません。");
-                return;
-              }
-              if (lines.length === 0) return;
-              setPayMode("cash");
-            }}
-            disabled={lines.length === 0}
-            className="rounded-full bg-accent py-2.5 text-sm font-medium text-white shadow-card hover:opacity-90 disabled:opacity-40"
-          >
-            現金で会計
-          </button>
-          <button
-            onClick={() => {
-              if (readOnly) {
-                toast.error("閲覧モードのため、会計できません。");
-                return;
-              }
-              if (lines.length === 0) return;
-              setPayMode("card");
-            }}
-            disabled={lines.length === 0}
-            className="rounded-full border border-accent py-2.5 text-sm font-medium text-accent hover:bg-accent-weak disabled:opacity-40"
-          >
-            カードで会計
-          </button>
-        </div>
-      </div>
+        </Modal>
+      )}
 
       {payMode === "cash" && (
         <PaymentDialog
           total={total}
-          items={lines.map((l) => ({ menuItemId: l.menuItemId, quantity: l.quantity }))}
-          receiptLines={lines.map((l) => ({
-            name: l.item.name,
-            quantity: l.quantity,
-            unitPrice: l.item.salePrice,
-          }))}
+          items={cartItems}
+          receiptLines={receiptLines}
           onClose={() => setPayMode(null)}
           onSuccess={() => {
             setCart({});
@@ -268,12 +375,8 @@ export function RegisterManager({
       {payMode === "card" && (
         <CardPaymentDialog
           total={total}
-          items={lines.map((l) => ({ menuItemId: l.menuItemId, quantity: l.quantity }))}
-          receiptLines={lines.map((l) => ({
-            name: l.item.name,
-            quantity: l.quantity,
-            unitPrice: l.item.salePrice,
-          }))}
+          items={cartItems}
+          receiptLines={receiptLines}
           onClose={() => setPayMode(null)}
           onSuccess={() => {
             setCart({});
@@ -285,6 +388,32 @@ export function RegisterManager({
     </div>
   );
 }
+
+function CategoryTab({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-md px-3.5 py-1.5 text-sm font-bold transition-colors ${
+        active
+          ? "bg-ink text-white"
+          : "border border-border bg-surface text-ink-muted hover:bg-surface-hover"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+// 預り金の入力。エアレジのように、よく使う金額のボタンと大きなテンキーで素早く入れる。
+const QUICK_AMOUNTS = [1000, 5000, 10000];
 
 function PaymentDialog({
   total,
@@ -307,6 +436,7 @@ function PaymentDialog({
 
   const receivedNum = Number(received || 0);
   const change = receivedNum - total;
+  const enough = received !== "" && receivedNum >= total;
 
   function pressDigit(d: string) {
     setReceived((cur) => (cur === "0" ? d : cur + d));
@@ -337,7 +467,10 @@ function PaymentDialog({
         <div className="space-y-3 text-center">
           <p className="text-lg font-bold text-success">✓ お会計を完了しました</p>
           {done.change > 0 && (
-            <p className="num text-sm text-ink-muted">おつり {yen(done.change)}</p>
+            <div className="rounded-lg bg-accent-weak py-3">
+              <p className="text-xs text-accent">おつり</p>
+              <p className="num text-3xl font-bold text-accent">{yen(done.change)}</p>
+            </div>
           )}
           <div className="rounded border border-border bg-bg p-3">
             <Receipt
@@ -351,13 +484,14 @@ function PaymentDialog({
           </div>
           <button
             onClick={() => window.print()}
-            className="w-full rounded-full border border-accent py-2.5 text-sm font-medium text-accent hover:bg-accent-weak"
+            className="w-full rounded-lg border border-accent py-2.5 text-sm font-bold text-accent hover:bg-accent-weak"
           >
             レシートを印刷
           </button>
           <button
             onClick={onSuccess}
-            className="w-full rounded-full bg-accent py-2.5 text-sm font-medium text-white hover:opacity-90"
+            className="w-full rounded-lg py-2.5 text-sm font-bold text-white"
+            style={{ backgroundColor: "#ef7b10" }}
           >
             レジへ戻る
           </button>
@@ -369,56 +503,68 @@ function PaymentDialog({
   return (
     <Modal open onOpenChange={(o) => !o && onClose()} title="お支払い">
       <div className="space-y-3">
-        <p className="num text-sm text-ink-muted">お会計 {yen(total)}</p>
-        <div className="flex items-center gap-2">
-          <div className="flex-1 rounded border border-border px-3 py-2">
-            <p className="text-[11px] text-ink-muted">お預かり</p>
-            <p className="num text-lg font-bold">{received ? yen(receivedNum) : "¥0"}</p>
+        <div className="rounded-lg bg-surface-hover px-4 py-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-ink-muted">お会計</span>
+            <span className="num text-2xl font-bold">{yen(total)}</span>
           </div>
+          <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
+            <span className="text-xs text-ink-muted">お預かり</span>
+            <span className="num text-2xl font-bold">{received ? yen(receivedNum) : "¥0"}</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
+            <span className="text-xs text-ink-muted">
+              {received && receivedNum < total ? "不足" : "おつり"}
+            </span>
+            <span
+              className={`num text-2xl font-bold ${
+                received && receivedNum < total ? "text-danger" : "text-accent"
+              }`}
+            >
+              {received ? yen(Math.abs(change)) : "—"}
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-4 gap-1.5">
           <button
             onClick={() => setReceived(String(total))}
-            className="rounded border border-border px-3 py-2 text-xs font-medium hover:bg-surface-hover"
+            className="rounded-lg border-2 border-accent py-2.5 text-xs font-bold text-accent hover:bg-accent-weak"
           >
-            ちょうど受け取り({yen(total)})
+            ちょうど
           </button>
+          {QUICK_AMOUNTS.map((a) => (
+            <button
+              key={a}
+              onClick={() => setReceived(String(a))}
+              className="num rounded-lg border border-border py-2.5 text-xs font-bold hover:bg-surface-hover"
+            >
+              ¥{a.toLocaleString("ja-JP")}
+            </button>
+          ))}
         </div>
-        <p className="text-[11px] text-ink-muted">
-          現金以外の場合はそのまま「会計する」を押してください
-        </p>
 
         <div className="grid grid-cols-3 gap-1.5">
           {["1", "2", "3", "4", "5", "6", "7", "8", "9", "00", "0", "⌫"].map((k) => (
             <button
               key={k}
-              onClick={() =>
-                k === "⌫" ? setReceived((cur) => cur.slice(0, -1)) : pressDigit(k)
-              }
-              className="rounded border border-border py-2 text-sm font-medium hover:bg-surface-hover"
+              onClick={() => (k === "⌫" ? setReceived((cur) => cur.slice(0, -1)) : pressDigit(k))}
+              className="num rounded-lg border border-border py-3.5 text-lg font-bold hover:bg-surface-hover active:scale-95"
             >
               {k}
             </button>
           ))}
         </div>
-        <button
-          onClick={() => setReceived("")}
-          className="w-full rounded border border-border py-1.5 text-xs text-ink-muted hover:bg-surface-hover"
-        >
-          クリア
-        </button>
 
-        <div className="flex items-center justify-between border-t border-border pt-3 text-sm">
-          <span className="text-ink-muted">
-            {received && receivedNum < total ? "未清算" : "おつり"}
-          </span>
-          <span className="num font-bold">
-            {received ? yen(Math.max(0, change)) : "—"}
-          </span>
-        </div>
+        <p className="text-center text-[11px] text-ink-muted">
+          現金以外のときは、そのまま「会計する」を押してください
+        </p>
 
         <button
           onClick={finalize}
           disabled={pending}
-          className="w-full rounded-full bg-accent py-2.5 text-sm font-medium text-white shadow-card hover:opacity-90 disabled:opacity-50"
+          className="w-full rounded-lg py-3.5 text-base font-bold text-white shadow-card disabled:opacity-50"
+          style={{ backgroundColor: enough || received === "" ? "#ef7b10" : "#c9c1b8" }}
         >
           {pending ? "処理中…" : "会計する"}
         </button>

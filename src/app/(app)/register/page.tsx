@@ -1,23 +1,28 @@
 import { getRegisterMenu, getRecentSales } from "./actions";
 import { RegisterManager } from "@/components/register/RegisterManager";
 import { getRole } from "@/lib/auth";
+import { getCurrentEvent } from "@/lib/event";
 
 export default async function RegisterPage() {
-  const [menuItems, recentSales] = await Promise.all([getRegisterMenu(), getRecentSales()]);
+  const [menuItems, recentSales, currentEvent] = await Promise.all([
+    getRegisterMenu(),
+    getRecentSales(),
+    getCurrentEvent(),
+  ]);
 
   return (
     <div>
-      <h1 className="text-xl font-bold tracking-tight">レジ</h1>
-      <p className="mt-1 text-sm text-ink-muted">
-        商品をタップしてカートに入れ、「会計する」で1件の取引として記録します。
-      </p>
-      <div className="mt-6">
-        <RegisterManager
-          menuItems={menuItems}
-          recentSales={recentSales}
-          readOnly={getRole() !== "full"}
-        />
+      <div className="mb-3 flex items-baseline gap-3">
+        <h1 className="text-xl font-bold tracking-tight">レジ</h1>
+        <span className="text-xs text-ink-muted">
+          {currentEvent ? `${currentEvent.name}(${currentEvent.date})` : "イベント未選択"}
+        </span>
       </div>
+      <RegisterManager
+        menuItems={menuItems}
+        recentSales={recentSales}
+        readOnly={getRole() !== "full"}
+      />
     </div>
   );
 }
