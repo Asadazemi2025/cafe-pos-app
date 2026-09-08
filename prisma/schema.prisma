@@ -22,6 +22,7 @@ model Event {
   sales     Sale[]
   expenses  Expense[]
   sessions  DailyRegister[]
+  journal   JournalEntry[]
 
   @@index([date])
 }
@@ -224,6 +225,19 @@ model Expense {
   createdAt DateTime @default(now())
 
   @@index([eventId])
+}
+
+// 振り返り画面の営業日誌。営業日ごとに何本でも書ける
+model JournalEntry {
+  id        String   @id @default(cuid())
+  eventId   String?
+  event     Event?   @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  dayIndex  Int      @default(0)
+  body      String
+  author    String   @default("スタッフ")
+  createdAt DateTime @default(now())
+
+  @@index([eventId, dayIndex])
 }
 
 model AppSetting {

@@ -41,56 +41,67 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-6 rounded-2xl bg-surface p-5 text-center shadow-card">
-          <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-accent text-white font-bold shadow-card">
+    <div className="anim-fade-up flex min-h-screen items-center justify-center px-4">
+      <div className="w-[420px]">
+        <div className="flex items-center gap-3.5">
+          <div className="flex h-[52px] w-[52px] items-center justify-center rounded-2xl bg-dark text-[19px] font-bold text-white">
             珈
           </div>
-          <h1 className="mt-3 text-lg font-bold tracking-tight">つむぐカフェへようこそ</h1>
-          <p className="mt-1 text-sm text-ink-muted">合言葉を入れてください</p>
+          <div>
+            <h1 className="text-[22px] font-bold tracking-[.01em]">つむぐカフェ</h1>
+            <p className="text-[13px] text-ink-muted">レジ・在庫・損益をひとつに</p>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="rounded-lg bg-surface p-6 shadow-card-hover">
-          <label className="block text-sm font-medium">
-            合言葉
+        <form
+          onSubmit={handleSubmit}
+          className="mt-5 rounded-4xl border border-border bg-surface px-8 pb-7 pt-[26px] shadow-[0_20px_50px_-24px_rgba(40,35,26,.35)]"
+        >
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-bold text-ink-muted">合言葉</span>
             <input
               type="password"
               name="passphrase"
               required
               autoFocus
-              className="mt-1.5 w-full rounded-md border border-border bg-surface px-3.5 py-2 text-sm text-ink transition-colors focus:border-accent focus:outline-none"
               placeholder="チーム共通の合言葉"
+              className="w-full rounded-xl border border-border px-[15px] py-[13px] text-[15px] outline-none placeholder:text-ink-placeholder focus:border-accent"
             />
           </label>
 
           {error && (
-            <p className="mt-4 rounded-md bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>
+            <p className="mt-3.5 rounded-xl bg-danger-weak px-3.5 py-2.5 text-[13px] text-danger">
+              {error}
+            </p>
           )}
 
           <button
             type="submit"
             disabled={pending}
-            className="mt-6 w-full rounded-full bg-accent py-2.5 text-sm font-medium text-white shadow-card transition-all duration-200 hover:opacity-90 hover:shadow-card-hover disabled:opacity-50"
+            className="press press-cta mt-5 w-full rounded-lg bg-dark py-[17px] text-base font-bold text-white disabled:opacity-50"
           >
-            {pending ? "確認中…" : "ログイン"}
+            {pending ? "確認中…" : "はじめる"}
+          </button>
+
+          <div className="mt-4 flex items-center gap-3 text-[11px] text-ink-muted">
+            <span className="h-px flex-1 bg-border" />
+            または
+            <span className="h-px flex-1 bg-border" />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleViewMode}
+            disabled={viewPending}
+            className="press press-cta mt-4 w-full rounded-lg border border-border bg-surface py-[15px] text-[13px] font-bold text-ink-muted hover:border-accent hover:text-accent-deep disabled:opacity-50"
+          >
+            {viewPending ? "入場中…" : "閲覧モードで見る(合言葉なし・操作不可)"}
           </button>
         </form>
 
-        <div className="mt-3 flex items-center gap-3 text-xs text-ink-muted">
-          <span className="h-px flex-1 bg-border" />
-          または
-          <span className="h-px flex-1 bg-border" />
-        </div>
-
-        <button
-          type="button"
-          onClick={handleViewMode}
-          disabled={viewPending}
-          className="mt-3 w-full rounded-full border border-border bg-surface py-2.5 text-sm font-medium text-ink transition-all duration-200 hover:bg-surface-hover disabled:opacity-50"
-        >
-          {viewPending ? "入場中…" : "閲覧モードで見る(合言葉不要・操作不可)"}
-        </button>
+        <p className="mt-3.5 text-center text-[11px] text-ink-muted">
+          合言葉はイベントの運営メンバーで共有してください。
+        </p>
       </div>
     </div>
   );
