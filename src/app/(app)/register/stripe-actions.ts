@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireEditAuth } from "@/lib/auth";
-import { requireCurrentEvent } from "@/lib/event";
+import { getCurrentDayIndex, requireCurrentEvent } from "@/lib/event";
 import { getStripeClient } from "@/lib/stripe";
 import { performSale, type CartLine } from "@/lib/register-sale";
 import { prisma } from "@/lib/prisma";
@@ -71,6 +71,7 @@ export async function finalizeCardSale(
       items,
       paymentMethod: "CARD",
       eventId: requireCurrentEvent(),
+      dayIndex: getCurrentDayIndex(),
       stripePaymentIntentId: paymentIntentId,
       clientId: `stripe-${paymentIntentId}`,
     });

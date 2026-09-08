@@ -1,7 +1,6 @@
 import { getEvents } from "./actions";
 import { EventSelector } from "@/components/events/EventSelector";
 import { getRole } from "@/lib/auth";
-import { getCurrentEventId } from "@/lib/event";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +12,6 @@ export default async function SelectEventPage() {
       <EventSelector
         events={events}
         readOnly={getRole() !== "full"}
-        currentEventId={getCurrentEventId()}
       />
     </div>
   );

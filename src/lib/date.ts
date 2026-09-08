@@ -12,6 +12,21 @@ export function todayJST(): string {
   return jstDayKey(new Date());
 }
 
+const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
+
+// "2026-09-06" → "9/6(日)"
+export function weekdayLabel(day: string): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}(${WEEKDAYS[d.getUTCDay()]})`;
+}
+
+// "2026-09-06" の n日後を "YYYY-MM-DD" で返す
+export function addDaysISO(day: string, n: number): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
 // 指定したJSTの日付("YYYY-MM-DD")の、その日の開始・終了(UTC Date)を返す。
 // Sale.occurredAtなどをその日の範囲で絞り込むのに使う。
 export function jstDayRange(day: string): { start: Date; end: Date } {

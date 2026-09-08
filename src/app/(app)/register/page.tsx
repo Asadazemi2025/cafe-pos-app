@@ -1,28 +1,25 @@
-import { getRegisterMenu, getRecentSales } from "./actions";
+import { getRegisterMenu } from "./actions";
+import { getSession } from "./session-actions";
 import { RegisterManager } from "@/components/register/RegisterManager";
 import { getRole } from "@/lib/auth";
 import { getCurrentEvent } from "@/lib/event";
 
 export default async function RegisterPage() {
-  const [menuItems, recentSales, currentEvent] = await Promise.all([
+  const [products, session, event] = await Promise.all([
     getRegisterMenu(),
-    getRecentSales(),
+    getSession(),
     getCurrentEvent(),
   ]);
 
+  const day = event?.dayList[event.dayIndex];
+
   return (
-    <div>
-      <div className="mb-3 flex items-baseline gap-3">
-        <h1 className="text-xl font-bold tracking-tight">レジ</h1>
-        <span className="text-xs text-ink-muted">
-          {currentEvent ? `${currentEvent.name}(${currentEvent.date})` : "イベント未選択"}
-        </span>
-      </div>
-      <RegisterManager
-        menuItems={menuItems}
-        recentSales={recentSales}
-        readOnly={getRole() !== "full"}
-      />
-    </div>
+    <RegisterManager
+      products={products}
+      session={session}
+      dayLabel={day?.date ?? ""}
+      storeName={event?.name ?? "つむぐカフェ"}
+      readOnly={getRole() !== "full"}
+    />
   );
 }

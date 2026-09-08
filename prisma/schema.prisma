@@ -12,13 +12,16 @@ datasource db {
 // 出店するイベント1日分。売上・レジ締め・経費はこの単位で分ける。
 // 材料・メニュー・在庫は全イベント共通(前回の余りを次回も使うため)。
 model Event {
-  id        String         @id @default(cuid())
+  id        String          @id @default(cuid())
   name      String
-  date      DateTime       @db.Date
-  createdAt DateTime       @default(now())
+  // 開始日(README の Event.start)
+  date      DateTime        @db.Date
+  // 営業日数(1〜14)。1日目=dayIndex 0
+  days      Int             @default(1)
+  createdAt DateTime        @default(now())
   sales     Sale[]
   expenses  Expense[]
-  register  DailyRegister?
+  sessions  DailyRegister[]
 
   @@index([date])
 }
@@ -93,6 +96,8 @@ model MenuItem {
   stockMode      MenuStockMode      @default(MADE_TO_ORDER)
   // PREPAREDのときの「あと何個売れるか」
   preparedStock  Int                @default(0)
+  // 基準在庫数(README の par)。在庫バーと「要追加」判定に使う
+  par            Int                @default(0)
   isTest         Boolean            @default(false)
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
@@ -128,13 +133,20 @@ model RecipeIngredient {
 
 enum PaymentMethod {
   CASH
+  // Stripe等のカード決済。表示は「キャッシュレス」
   CARD
+  // カード以外のキャッシュレス(QR決済など)
+  CASHLESS
+  // 学内ポイント
+  POINT
 }
 
 model Sale {
   id                    String        @id @default(cuid())
   eventId               String?
   event                 Event?        @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  // イベント内の何日目か(0始まり)
+  dayIndex              Int           @default(0)
   totalAmount           Decimal       @db.Decimal(14, 2)
   totalCost             Decimal       @db.Decimal(14, 2)
   itemCount             Int
@@ -170,12 +182,14 @@ model SaleItem {
   fromPreparedStock Boolean @default(false)
 }
 
+// 営業日ごとのレジ開け/締め(README の Session)
 model DailyRegister {
   id           String    @id @default(cuid())
-  // 1イベント1回のレジ初め・レジ締め
-  eventId      String?   @unique
+  eventId      String?
   event        Event?    @relation(fields: [eventId], references: [id], onDelete: SetNull)
-  // 以前の日付キー。表示用のラベルとして残している
+  // イベント内の何日目か(0始まり)
+  dayIndex     Int       @default(0)
+  // 表示用の日付ラベル(YYYY-MM-DD)
   day          String
   openingCash  Decimal?  @db.Decimal(14, 2)
   openedAt     DateTime?
@@ -184,14 +198,25 @@ model DailyRegister {
   expectedCash Decimal?  @db.Decimal(14, 2)
   closedAt     DateTime?
   cashCounts   Json?
+  // 締めのときに数えた金種の内訳
+  closeCounts  Json?
+
+  @@unique([eventId, dayIndex])
+}
+
+// 経費の計上単位。1日あたりはそのまま、イベント全体は営業日数で按分する
+enum ExpenseScope {
+  PER_DAY
+  WHOLE_EVENT
 }
 
 model Expense {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   eventId   String?
-  event     Event?   @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  event     Event?       @relation(fields: [eventId], references: [id], onDelete: SetNull)
   name      String
-  amount    Decimal  @db.Decimal(14, 2)
+  scope     ExpenseScope @default(PER_DAY)
+  amount    Decimal      @db.Decimal(14, 2)
   memo      String?
   photoPath String?
   isTest    Boolean  @default(false)

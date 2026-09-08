@@ -3,54 +3,55 @@
 @tailwind utilities;
 
 /*
-  デザイン方針：焙煎豆を思わせる温かみのあるニュートラルに、
-  カラメル色のアクセントを合わせたフラットな管理画面。
-  浅田ラボと同じCSS変数トークンの仕組みを流用し、色だけをカフェ向けに変更している。
+  デザイン: design_handoff_pos_app/README.md のトークンをそのまま採用。
+  紙のような温かいベージュ地に、深緑のアクセントと黒に近いダークの面。
+  タブレット横向き(1194×834)での運用を前提にした余白・文字サイズ。
 */
 
 :root {
-  --bg: 246 243 238;
-  --surface: 255 255 255;
-  --surface-hover: 243 238 231;
-  --ink: 38 31 27;
-  --ink-muted: 143 129 118;
-  --border: 231 223 213;
-  --accent: 158 94 40;
-  --accent-weak: 245 231 214;
-  --warning: 191 130 20;
-  --danger: 197 74 46;
-  --success: 58 138 76;
-  --radius: 20px;
+  /* 面 */
+  --bg: 243 240 233; /* #f3f0e9 ページ */
+  --surface: 255 255 255; /* #fff */
+  --surface-alt: 250 248 242; /* #faf8f2 表ヘッダー */
+  --surface-bar: 248 246 240; /* #f8f6f0 営業日バー */
+  --surface-hover: 241 238 230; /* #f1eee6 微グレー面 */
 
-  --sidebar-bg: 48 34 28;
-  --sidebar-hover: 64 46 38;
-  --sidebar-ink: 240 231 222;
-  --sidebar-ink-muted: 184 164 148;
+  /* 罫線 */
+  --border: 225 220 209; /* #e1dcd1 */
+  --border-row: 236 234 225; /* #eceae1 */
+  --border-strong: 201 195 180; /* #c9c3b4 */
 
-  --shadow-card: 0 1px 2px rgb(38 24 15 / 0.05), 0 12px 24px -8px rgb(38 24 15 / 0.12);
-  --shadow-card-hover: 0 4px 8px rgb(38 24 15 / 0.07), 0 20px 32px -8px rgb(38 24 15 / 0.18);
-}
+  /* 文字 */
+  --ink: 30 34 32; /* #1e2220 */
+  --ink-2: 62 59 52; /* #3e3b34 */
+  --ink-3: 92 88 79; /* #5c584f */
+  --ink-muted: 107 103 92; /* #6b675c */
+  --ink-placeholder: 168 162 148; /* #a8a294 */
 
-.dark {
-  --bg: 24 20 18;
-  --surface: 34 28 25;
-  --surface-hover: 44 37 33;
-  --ink: 237 230 222;
-  --ink-muted: 163 148 138;
-  --border: 54 45 40;
-  --accent: 214 150 92;
-  --accent-weak: 58 42 30;
-  --warning: 230 175 90;
-  --danger: 230 130 100;
-  --success: 90 190 120;
+  /* 濃色面(ナビ・主要CTA) */
+  --dark: 32 38 31; /* #20261f */
+  --dark-hover: 45 51 43; /* #2d332b */
+  --dark-3: 49 56 47; /* #31382f */
 
-  --sidebar-bg: 18 14 12;
-  --sidebar-hover: 32 24 20;
-  --sidebar-ink: 237 230 222;
-  --sidebar-ink-muted: 150 130 115;
+  /* アクセント */
+  --accent: 47 111 94; /* #2f6f5e */
+  --accent-deep: 34 86 74; /* #22564a */
+  --accent-weak: 239 245 242; /* #eff5f2 */
+  --accent-weak-2: 230 239 234; /* #e6efea */
+  --accent-soft: 141 191 174; /* #8dbfae グラフ副 */
 
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.2), 0 12px 24px -8px rgb(0 0 0 / 0.4);
-  --shadow-card-hover: 0 4px 8px rgb(0 0 0 / 0.25), 0 20px 32px -8px rgb(0 0 0 / 0.5);
+  /* 注意色 */
+  --warning: 201 162 39; /* #c9a227 在庫50%未満 */
+  --alert: 176 81 47; /* #b0512f */
+  --alert-deep: 140 58 31; /* #8c3a1f */
+  --alert-weak: 251 238 228; /* #fbeee4 */
+  --alert-border: 236 217 195; /* #ecd9c3 */
+  --danger: 179 57 44; /* #b3392c 売切・差異 */
+  --danger-weak: 248 230 222; /* #f8e6de */
+
+  --shadow-app: 0 24px 60px -20px rgba(20, 26, 38, 0.45);
+  --shadow-modal: 0 30px 70px -20px rgba(40, 35, 26, 0.5);
+  --shadow-card: 0 10px 22px -12px rgba(24, 29, 38, 0.35);
 }
 
 @layer base {
@@ -61,19 +62,76 @@
 
   body {
     color: rgb(var(--ink));
-    font-feature-settings: "palt";
+    font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Hiragino Kaku Gothic Pro",
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
   }
 
-  /* 金額・数量などの数値は等幅で桁を揃える */
+  /* 数字は欧文フォント+等幅数字で桁を揃える(デザイン仕様どおり) */
   .num {
+    font-family: -apple-system, "SF Pro Text", "SF Pro Display", BlinkMacSystemFont,
+      "Helvetica Neue", sans-serif;
     font-variant-numeric: tabular-nums;
-    letter-spacing: 0.01em;
   }
 
   :focus-visible {
     outline: 2px solid rgb(var(--accent));
     outline-offset: 2px;
   }
+}
+
+/* 押下フィードバック。オーバーシュートしながら戻る */
+@layer utilities {
+  .press {
+    transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .press-nav:active {
+    transform: scale(0.86);
+  }
+  .press-chip:active {
+    transform: scale(0.92);
+  }
+  .press-step:active {
+    transform: scale(0.82);
+  }
+  .press-card:active {
+    transform: scale(0.94);
+  }
+  .press-cta:active {
+    transform: scale(0.955);
+  }
+  .press-row:active {
+    transform: scale(0.985);
+  }
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.anim-pop {
+  animation: popIn 0.18s ease-out;
+}
+.anim-fade-up {
+  animation: fadeUp 0.24s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {

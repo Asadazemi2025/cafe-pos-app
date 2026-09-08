@@ -22,12 +22,15 @@ export async function performSale(input: {
   items: CartLine[];
   paymentMethod: PaymentMethod;
   eventId: string;
+  dayIndex: number;
   stripePaymentIntentId?: string | null;
   clientId?: string | null;
-}): Promise<{ saleId: string; duplicate: boolean }> {
+}): Promise<{ saleId: string; saleNo: string; duplicate: boolean }> {
   if (input.clientId) {
     const existing = await prisma.sale.findUnique({ where: { clientId: input.clientId } });
-    if (existing) return { saleId: existing.id, duplicate: true };
+    if (existing) {
+      return { saleId: existing.id, saleNo: await saleNoFor(existing.id), duplicate: true };
+    }
   }
 
   const merged = mergeCartLines(input.items);
@@ -129,6 +132,7 @@ export async function performSale(input: {
         const sale = await tx.sale.create({
           data: {
             eventId: input.eventId,
+            dayIndex: input.dayIndex,
             totalAmount,
             totalCost,
             itemCount,
@@ -143,7 +147,7 @@ export async function performSale(input: {
       { timeout: 15000 },
     );
 
-    return { saleId, duplicate: false };
+    return { saleId, saleNo: await saleNoFor(saleId), duplicate: false };
   } catch (e) {
     // clientIdのユニーク制約違反 = 競合したオフライン再送。既存の会計を返す
     if (
@@ -152,10 +156,25 @@ export async function performSale(input: {
       e.code === "P2002"
     ) {
       const existing = await prisma.sale.findUnique({ where: { clientId: input.clientId } });
-      if (existing) return { saleId: existing.id, duplicate: true };
+      if (existing) {
+        return { saleId: existing.id, saleNo: await saleNoFor(existing.id), duplicate: true };
+      }
     }
     throw e;
   }
+}
+
+// 伝票番号。イベント内の通し番号を4桁でゼロ埋めする(例: 0012)
+async function saleNoFor(saleId: string): Promise<string> {
+  const sale = await prisma.sale.findUnique({
+    where: { id: saleId },
+    select: { eventId: true, occurredAt: true },
+  });
+  if (!sale?.eventId) return "0001";
+  const seq = await prisma.sale.count({
+    where: { eventId: sale.eventId, occurredAt: { lte: sale.occurredAt } },
+  });
+  return String(seq).padStart(4, "0");
 }
 
 export async function voidSale(saleId: string): Promise<void> {
