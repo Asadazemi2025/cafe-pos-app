@@ -2,7 +2,7 @@
 
 import { requireAuth } from "@/lib/auth";
 import { getCurrentEvent } from "@/lib/event";
-import { getDaySummary, HOURS, type DaySummary } from "@/lib/day-summary";
+import { getAllDaySummaries, HOURS, type DaySummary } from "@/lib/day-summary";
 
 export type HeatmapRow = {
   dayIndex: number;
@@ -28,9 +28,7 @@ export async function getAnalytics(): Promise<AnalyticsData | null> {
   const event = await getCurrentEvent();
   if (!event) return null;
 
-  const summaries = await Promise.all(
-    event.dayList.map((day) => getDaySummary(event.id, day.index)),
-  );
+  const summaries = await getAllDaySummaries(event.id);
 
   return {
     eventName: event.name,

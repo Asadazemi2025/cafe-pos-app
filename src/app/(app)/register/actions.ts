@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAuth, requireEditAuth } from "@/lib/auth";
 import { getCurrentDayIndex, requireCurrentEvent } from "@/lib/event";
 import { prisma } from "@/lib/prisma";
-import { computeMenuItemCosts } from "@/lib/cost";
+
 import { performSale, voidSale as voidSaleCore, type CartLine } from "@/lib/register-sale";
 
 export type PaymentMethodDTO = "CASH" | "CASHLESS" | "POINT";
@@ -22,17 +22,32 @@ export type RegisterMenuItemDTO = {
 
 export async function getRegisterMenu(): Promise<RegisterMenuItemDTO[]> {
   requireAuth();
-  const items = await prisma.menuItem.findMany({
-    where: { showInRegister: true, isTest: false },
-    orderBy: { name: "asc" },
-  });
-  const costs = await computeMenuItemCosts(items.map((i) => i.id));
+  // メニューとレシピを同時に読み、原価はこの場で計算する(往復を減らして表示を速くする)
+  const [items, recipes] = await Promise.all([
+    prisma.menuItem.findMany({
+      where: { showInRegister: true, isTest: false },
+      orderBy: { name: "asc" },
+    }),
+    prisma.recipeIngredient.findMany({
+      select: { menuItemId: true, quantityPerUnit: true, ingredient: { select: { costPerUnit: true } } },
+    }),
+  ]);
+
+  const costs = new Map<string, number>();
+  for (const line of recipes) {
+    costs.set(
+      line.menuItemId,
+      (costs.get(line.menuItemId) ?? 0) +
+        line.quantityPerUnit.toNumber() * line.ingredient.costPerUnit.toNumber(),
+    );
+  }
+
   return items.map((i) => ({
     id: i.id,
     name: i.name,
     category: i.category,
     salePrice: i.salePrice.toNumber(),
-    costPrice: costs[i.id].toNumber(),
+    costPrice: costs.get(i.id) ?? 0,
     stockMode: i.stockMode,
     preparedStock: i.preparedStock,
     par: i.par,

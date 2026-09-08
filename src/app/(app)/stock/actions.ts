@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAuth, requireEditAuth } from "@/lib/auth";
 import { getCurrentDayIndex, requireCurrentEvent } from "@/lib/event";
 import { prisma } from "@/lib/prisma";
-import { computeMenuItemCosts, expandRecipeUsage } from "@/lib/cost";
+import { expandRecipeUsage } from "@/lib/cost";
 import { Prisma } from "@prisma/client";
 
 export type StockState = "ok" | "low" | "out";
@@ -57,11 +57,23 @@ export async function getStock(): Promise<{ rows: StockRow[]; summary: StockSumm
     }),
   ]);
 
-  const costs = await computeMenuItemCosts(items.map((i) => i.id));
   const ingredientById = new Map(ingredients.map((i) => [i.id, i]));
 
+  // 原価はレシピと材料単価から、いま読み込んだデータだけで計算する
+  // (メニューごとにDBを引き直すと、そのぶん画面が出るのが遅くなるため)
+  const costs = new Map<string, number>();
+  for (const line of recipes) {
+    const ing = ingredientById.get(line.ingredientId);
+    if (!ing) continue;
+    costs.set(
+      line.menuItemId,
+      (costs.get(line.menuItemId) ?? 0) +
+        line.quantityPerUnit.toNumber() * ing.costPerUnit.toNumber(),
+    );
+  }
+
   const rows: StockRow[] = items.map((item) => {
-    const cost = costs[item.id].toNumber();
+    const cost = costs.get(item.id) ?? 0;
     let stock: number | null;
     let derived = false;
 
@@ -106,7 +118,7 @@ export async function getStock(): Promise<{ rows: StockRow[]; summary: StockSumm
   );
   const preparedValue = items
     .filter((i) => i.stockMode === "PREPARED")
-    .reduce((sum, i) => sum + i.preparedStock * costs[i.id].toNumber(), 0);
+    .reduce((sum, i) => sum + i.preparedStock * (costs.get(i.id) ?? 0), 0);
 
   return {
     rows,

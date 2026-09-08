@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -89,7 +90,7 @@ export function buildDayList(start: string, days: number): EventDay[] {
 }
 
 // ヘッダー・営業日バーの表示用。選択中イベントが削除済みならnullを返す
-export async function getCurrentEvent(): Promise<CurrentEvent | null> {
+export const getCurrentEvent = cache(async (): Promise<CurrentEvent | null> => {
   const eventId = getCurrentEventId();
   if (!eventId) return null;
   const event = await prisma.event.findUnique({ where: { id: eventId } });
@@ -112,7 +113,7 @@ export async function getCurrentEvent(): Promise<CurrentEvent | null> {
         ? `${dayList[0].dateLabel} ／ 全1日`
         : `${dayList[0].dateLabel} 〜 ${last.dateLabel} ／ 全${dayList.length}日`,
   };
-}
+});
 
 // 開催中 / 開催予定 / 終了 の判定(README: 経過日数 = today - start)
 export type EventStatus = "ongoing" | "upcoming" | "finished";

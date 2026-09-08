@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 
 // README「計算ロジック」をそのまま移植したもの。
@@ -48,34 +49,91 @@ export type DaySummary = {
 
 export const HOURS = ["10", "11", "12", "13", "14", "15", "16"];
 
-export async function getDaySummary(eventId: string, dayIndex: number): Promise<DaySummary> {
+type SaleRow = {
+  dayIndex: number;
+  occurredAt: Date;
+  totalAmount: number;
+  totalCost: number;
+  itemCount: number;
+  items: { menuItemId: string | null; name: string; quantity: number; amount: number; unitCost: number }[];
+};
+
+type EventData = {
+  id: string;
+  days: number;
+  sales: SaleRow[];
+  expenseWholeTotal: number;
+  expensePerDayTotal: number;
+};
+
+// イベント1件ぶんのデータを1往復で読み、同じリクエスト内では使い回す。
+// (ヘッダーのバッジ・ページ本体・分析が同じ集計を何度も取りにいくのを防ぐ)
+const loadEventData = cache(async (eventId: string): Promise<EventData> => {
   const [event, sales, expenses] = await Promise.all([
-    prisma.event.findUniqueOrThrow({ where: { id: eventId } }),
+    prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { id: true, days: true } }),
     prisma.sale.findMany({
-      where: { eventId, dayIndex, voided: false, isTest: false },
-      include: { items: true },
+      where: { eventId, voided: false, isTest: false },
       orderBy: { occurredAt: "asc" },
+      select: {
+        dayIndex: true,
+        occurredAt: true,
+        totalAmount: true,
+        totalCost: true,
+        itemCount: true,
+        items: {
+          select: { menuItemId: true, name: true, quantity: true, amount: true, unitCost: true },
+        },
+      },
     }),
-    prisma.expense.findMany({ where: { eventId, isTest: false } }),
+    prisma.expense.findMany({
+      where: { eventId, isTest: false },
+      select: { scope: true, amount: true },
+    }),
   ]);
 
-  const expenseWholeTotal = expenses
-    .filter((e) => e.scope === "WHOLE_EVENT")
-    .reduce((a, e) => a + e.amount.toNumber(), 0);
-  const expensePerDayTotal = expenses
-    .filter((e) => e.scope === "PER_DAY")
-    .reduce((a, e) => a + e.amount.toNumber(), 0);
-  const fixedCost = Math.round(expensePerDayTotal + expenseWholeTotal / Math.max(1, event.days));
+  return {
+    id: event.id,
+    days: event.days,
+    sales: sales.map((s) => ({
+      dayIndex: s.dayIndex,
+      occurredAt: s.occurredAt,
+      totalAmount: s.totalAmount.toNumber(),
+      totalCost: s.totalCost.toNumber(),
+      itemCount: s.itemCount,
+      items: s.items.map((i) => ({
+        menuItemId: i.menuItemId,
+        name: i.name,
+        quantity: i.quantity,
+        amount: i.amount.toNumber(),
+        unitCost: i.unitCost.toNumber(),
+      })),
+    })),
+    expenseWholeTotal: expenses
+      .filter((e) => e.scope === "WHOLE_EVENT")
+      .reduce((a, e) => a + e.amount.toNumber(), 0),
+    expensePerDayTotal: expenses
+      .filter((e) => e.scope === "PER_DAY")
+      .reduce((a, e) => a + e.amount.toNumber(), 0),
+  };
+});
+
+function summarize(data: EventData, dayIndex: number): DaySummary {
+  const fixedCost = Math.round(
+    data.expensePerDayTotal + data.expenseWholeTotal / Math.max(1, data.days),
+  );
 
   let salesTotal = 0;
   let costTotal = 0;
   let unitCount = 0;
+  let saleCount = 0;
   const perMap = new Map<string, ProductSalesRow>();
   const hourMap = new Map<string, number>();
 
-  for (const sale of sales) {
-    salesTotal += sale.totalAmount.toNumber();
-    costTotal += sale.totalCost.toNumber();
+  for (const sale of data.sales) {
+    if (sale.dayIndex !== dayIndex) continue;
+    saleCount += 1;
+    salesTotal += sale.totalAmount;
+    costTotal += sale.totalCost;
     unitCount += sale.itemCount;
 
     const hour = String(
@@ -95,14 +153,12 @@ export async function getDaySummary(eventId: string, dayIndex: number): Promise<
           cost: 0,
           margin: 0,
         } satisfies ProductSalesRow);
-      const amount = item.amount.toNumber();
-      const cost = item.unitCost.toNumber() * item.quantity;
       row.quantity += item.quantity;
-      row.sales += amount;
-      row.cost += cost;
+      row.sales += item.amount;
+      row.cost += item.unitCost * item.quantity;
       row.margin = row.sales - row.cost;
       perMap.set(key, row);
-      saleAmount += amount;
+      saleAmount += item.amount;
     }
     hourMap.set(hour, (hourMap.get(hour) ?? 0) + saleAmount);
   }
@@ -122,17 +178,17 @@ export async function getDaySummary(eventId: string, dayIndex: number): Promise<
   const unitsToBep = over >= 0 ? 0 : Math.ceil(-over / Math.max(1, topUnitMargin));
 
   return {
-    eventId,
+    eventId: data.id,
     dayIndex,
-    days: event.days,
+    days: data.days,
     sales: salesTotal,
     cost: costTotal,
     margin,
-    saleCount: sales.length,
+    saleCount,
     unitCount,
     fixedCost,
-    expenseWholeTotal,
-    expensePerDayTotal,
+    expenseWholeTotal: data.expenseWholeTotal,
+    expensePerDayTotal: data.expensePerDayTotal,
     varRate,
     cmRate,
     bepSales,
@@ -142,6 +198,16 @@ export async function getDaySummary(eventId: string, dayIndex: number): Promise<
     perProduct,
     byHour: HOURS.map((hour) => ({ hour, sales: hourMap.get(hour) ?? 0 })),
   };
+}
+
+export async function getDaySummary(eventId: string, dayIndex: number): Promise<DaySummary> {
+  return summarize(await loadEventData(eventId), dayIndex);
+}
+
+/** 分析のヒートマップ用。全営業日ぶんをまとめて返す(追加のDBアクセスは発生しない) */
+export async function getAllDaySummaries(eventId: string): Promise<DaySummary[]> {
+  const data = await loadEventData(eventId);
+  return Array.from({ length: Math.max(1, data.days) }, (_, i) => summarize(data, i));
 }
 
 /** ヘッダーのバッジ文言: 「黒字 +¥12,340」または「黒字まで ¥8,900」 */
