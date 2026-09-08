@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { logout } from "@/app/logout/actions";
 
 // アイコンは既存ライブラリではなく、デザイン通りの幾何形(border 2.5px相当)で作る
 const NAV = [
@@ -54,12 +55,17 @@ export function NavRail() {
         );
       })}
 
-      <div className="mt-auto flex flex-col items-center gap-1.5 text-[10px] text-[#8b9187]">
+      <form action={logout} className="mt-auto flex flex-col items-center gap-1.5">
         <div className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-dark-3 text-xs font-bold text-[#ced3c8]">
           店
         </div>
-        <div>スタッフ</div>
-      </div>
+        <button
+          type="submit"
+          className="press press-chip rounded-lg px-2 py-1 text-[10px] font-bold text-[#8b9187] hover:bg-dark-hover hover:text-white"
+        >
+          ログアウト
+        </button>
+      </form>
     </nav>
   );
 }

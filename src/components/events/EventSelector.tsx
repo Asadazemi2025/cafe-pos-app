@@ -9,6 +9,7 @@ import {
   deleteEvent,
   type EventDTO,
 } from "@/app/select-event/actions";
+import { logout } from "@/app/logout/actions";
 import { todayJST } from "@/lib/date";
 
 const STATUS_STYLE = {
@@ -82,14 +83,17 @@ export function EventSelector({
     return (
       <div className="anim-fade-up flex min-h-screen items-center justify-center px-4">
         <div className="w-[560px] rounded-4xl border border-border bg-surface px-9 pb-[30px] pt-[34px] shadow-[0_20px_50px_-24px_rgba(40,35,26,.35)]">
-          {events.length > 0 && (
-            <button
-              onClick={() => setView("home")}
-              className="press press-chip text-[13px] font-bold text-ink-muted hover:text-accent-deep"
-            >
-              ‹ イベント一覧
-            </button>
-          )}
+          <div className="flex items-center">
+            {events.length > 0 && (
+              <button
+                onClick={() => setView("home")}
+                className="press press-chip text-[13px] font-bold text-ink-muted hover:text-accent-deep"
+              >
+                ‹ イベント一覧
+              </button>
+            )}
+            <LogoutButton className="ml-auto" />
+          </div>
           <h1 className="mt-3 text-[22px] font-bold">新しいイベント</h1>
           <p className="mt-1 text-[13px] text-ink-muted">
             イベント単位で売上・レジ金・損益を分けて記録します。
@@ -141,7 +145,10 @@ export function EventSelector({
   return (
     <div className="anim-fade-up flex min-h-screen items-center justify-center px-4">
       <div className="w-[620px]">
-        <h1 className="text-2xl font-bold">イベントを選ぶ</h1>
+        <div className="flex items-center">
+          <h1 className="text-2xl font-bold">イベントを選ぶ</h1>
+          <LogoutButton className="ml-auto" />
+        </div>
         <p className="mt-1 text-[13px] text-ink-muted">
           営業するイベントを選んで開店します。売上・レジ金・損益はイベントごとに分かれます。
         </p>
@@ -190,6 +197,20 @@ export function EventSelector({
         </button>
       </div>
     </div>
+  );
+}
+
+// 別の人に引き継ぐとき用。合言葉のセッションと選択中イベントをまとめて消す
+function LogoutButton({ className = "" }: { className?: string }) {
+  return (
+    <form action={logout} className={className}>
+      <button
+        type="submit"
+        className="press press-chip rounded-[9px] border border-border bg-surface px-3 py-[7px] text-xs font-bold text-ink-muted hover:border-accent hover:text-accent-deep"
+      >
+        ログアウト
+      </button>
+    </form>
   );
 }
 
