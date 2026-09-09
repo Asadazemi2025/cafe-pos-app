@@ -10,6 +10,8 @@ const TITLES: Record<string, string> = {
   "/stock": "在庫管理",
   "/expenses": "経費",
   "/analytics": "損益と分析",
+  "/kanri": "管理会計",
+  "/surveys": "アンケート",
   "/review": "振り返り",
 };
 

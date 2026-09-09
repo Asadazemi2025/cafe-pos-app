@@ -15,8 +15,8 @@ export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const authed = isAuthedRequest(req);
 
-  // お客さまのスマホが開く決済後の画面は、合言葉なしで見られるようにする
-  if (pathname.startsWith("/pay")) {
+  // お客さまのスマホが開く画面(決済後・アンケート)は、合言葉なしで見られるようにする
+  if (pathname.startsWith("/pay") || pathname.startsWith("/survey/")) {
     return NextResponse.next();
   }
 

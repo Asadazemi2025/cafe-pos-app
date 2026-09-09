@@ -23,6 +23,9 @@ model Event {
   expenses  Expense[]
   sessions  DailyRegister[]
   journal   JournalEntry[]
+  plan      ProfitPlan?
+  actions   ActionPlan[]
+  surveys   SurveyResponse[]
 
   @@index([date])
 }
@@ -99,6 +102,9 @@ model MenuItem {
   preparedStock  Int                @default(0)
   // 基準在庫数(README の par)。在庫バーと「要追加」判定に使う
   par            Int                @default(0)
+  // 1個を作って渡すまでにかかる時間(分)。人手がボトルネックのときの
+  // 「制約1単位あたり利益(提供時間あたり粗利)」を出すために使う
+  prepMinutes    Decimal            @default(0) @db.Decimal(6, 2)
   isTest         Boolean            @default(false)
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
@@ -240,6 +246,74 @@ model JournalEntry {
   body      String
   author    String   @default("スタッフ")
   createdAt DateTime @default(now())
+
+  @@index([eventId, dayIndex])
+}
+
+// ---------- 管理会計(利益計画・KPI・アンケート) ----------
+
+// イベントごとの利益計画。固定費の回収に加えて、1日いくら残したいか。
+model ProfitPlan {
+  id                String   @id @default(cuid())
+  eventId           String   @unique
+  event             Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  // 固定費を回収したうえで、1日あたりに残したい利益
+  dailyProfitTarget Decimal  @default(0) @db.Decimal(14, 2)
+  // 1日の営業時間(時間)と、同時に接客できる人数。制約1単位あたり利益の計算に使う
+  serviceHours      Decimal  @default(6) @db.Decimal(5, 2)
+  staffCount        Int      @default(2)
+  memo              String?
+  updatedAt         DateTime @updatedAt
+}
+
+// KPIの実績をどこから取るか。MANUALは手入力、それ以外は売上・アンケートから自動集計する
+enum KpiSource {
+  MANUAL
+  SALES
+  MARGIN
+  CUSTOMERS
+  UNIT_PRICE
+  UNITS
+  ATTACH_RATE
+  SURVEY_SCORE
+}
+
+// アクションプラン → 管理項目(KPI) → 利益目標 のつながりを持たせる
+model ActionPlan {
+  id          String    @id @default(cuid())
+  eventId     String
+  event       Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  // 打ち手(例: 「ドリンク注文時にフードを一声かける」)
+  title       String
+  // その打ち手を測る管理項目(例: 「フード併売率」)
+  kpiName     String
+  kpiUnit     String    @default("")
+  targetValue Decimal   @db.Decimal(14, 2)
+  source      KpiSource @default(MANUAL)
+  // 手入力のKPIの実績値
+  manualValue Decimal?  @db.Decimal(14, 2)
+  // この打ち手が効いたときに見込む1日あたりの利益増(利益目標とのつながり)
+  profitImpact Decimal  @default(0) @db.Decimal(14, 2)
+  memo        String?
+  createdAt   DateTime  @default(now())
+
+  @@index([eventId])
+}
+
+// お客さまアンケート。QRコードから回答してもらう
+model SurveyResponse {
+  id           String   @id @default(cuid())
+  eventId      String?
+  event        Event?   @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  dayIndex     Int      @default(0)
+  // 満足度・再来店意向(ともに1〜5)
+  satisfaction Int
+  repeatIntent Int?
+  ageGroup     String?
+  knownFrom    String?
+  favoriteItem String?
+  comment      String?
+  createdAt    DateTime @default(now())
 
   @@index([eventId, dayIndex])
 }
