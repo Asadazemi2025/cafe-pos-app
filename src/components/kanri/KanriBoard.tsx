@@ -57,7 +57,7 @@ export function KanriBoard({ data, readOnly = false }: { data: KanriData; readOn
   const maxPerMinute = Math.max(1, ...throughput.map((p) => p.marginPerMinute ?? 0));
 
   return (
-    <div className="anim-fade-up space-y-5 p-[22px]">
+    <div className="anim-fade-up space-y-5 p-4 md:p-[22px]">
       {/* ---- 1. 固定費の回収 ---- */}
       <section>
         <SectionTitle
@@ -65,7 +65,7 @@ export function KanriBoard({ data, readOnly = false }: { data: KanriData; readOn
           note={`${data.dayLabel}。毎日この粗利を積み上げないと、固定費を回収できません。`}
         />
 
-        <div className="mt-3 grid grid-cols-5 gap-3.5">
+        <div className="mt-3 grid grid-cols-2 gap-3 xl:grid-cols-5 xl:gap-3.5">
           <Metric label="1日あたり固定費" value={yen(m.fixedPerDay)} note="経費を営業日数で按分" />
           <Metric label="目標利益 / 日" value={yen(m.dailyProfitTarget)} note="固定費回収後に残す額" />
           <Metric
@@ -116,7 +116,7 @@ export function KanriBoard({ data, readOnly = false }: { data: KanriData; readOn
           title="必要な売上構成"
           note={`いまの売れ方(構成比)のまま必要売上 ${yen(m.requiredSalesPerDay)} に届かせるには、1日あたり何個売ればよいか。`}
         />
-        <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-surface">
+        <div className="mt-3 overflow-x-auto rounded-2xl border border-border bg-surface">
           <TableHead cols="1.6fr .8fr .8fr 1fr 1fr 1fr">
             <div>商品</div>
             <div className="text-right">構成比</div>
@@ -160,7 +160,7 @@ export function KanriBoard({ data, readOnly = false }: { data: KanriData; readOn
           title="提供時間あたりの利益(制約1単位あたり利益)"
           note={`人手が足りない日は、粗利の大きい商品より「1分あたりの粗利」が大きい商品を売るほうが、1日の利益は大きくなります。1日に使える提供時間は ${m.serviceHours}時間 × ${m.staffCount}人 = ${m.capacityMinutes}分。`}
         />
-        <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-surface">
+        <div className="mt-3 overflow-x-auto rounded-2xl border border-border bg-surface">
           <TableHead cols="1.6fr .8fr .8fr .9fr 1fr 1.4fr">
             <div>商品</div>
             <div className="text-right">粗利 / 個</div>
@@ -231,8 +231,8 @@ export function KanriBoard({ data, readOnly = false }: { data: KanriData; readOn
           note="利益率の高い商品だけを売ればよいわけではありません。ある区分が、ほかの区分をどれだけ連れてきているかを見ます。"
         />
 
-        <div className="mt-3 grid grid-cols-2 gap-3.5">
-          <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+        <div className="mt-3 grid grid-cols-1 gap-3.5 xl:grid-cols-2">
+          <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
             <TableHead cols="1fr .8fr 1fr 1fr">
               <div>区分</div>
               <div className="text-right">会計数</div>
@@ -240,7 +240,7 @@ export function KanriBoard({ data, readOnly = false }: { data: KanriData; readOn
               <div className="text-right">押し上げ</div>
             </TableHead>
             {m.categories.map((c) => (
-              <div key={c.category} className="border-b border-border-row px-[18px] py-3 last:border-b-0">
+              <div key={c.category} className="min-w-[820px] border-b border-border-row px-[18px] py-3 last:border-b-0">
                 <div className="grid grid-cols-[1fr_.8fr_1fr_1fr] items-center gap-3">
                   <div className="text-sm font-bold">{c.category}</div>
                   <div className="num text-right text-xs text-ink-muted">{c.saleCount}件</div>
@@ -274,7 +274,7 @@ export function KanriBoard({ data, readOnly = false }: { data: KanriData; readOn
             {m.categories.length === 0 && <Empty>まだ会計がありません。</Empty>}
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+          <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
             <TableHead cols="2fr .8fr .8fr">
               <div>よく一緒に買われる商品</div>
               <div className="text-right">件数</div>
@@ -303,7 +303,7 @@ export function KanriBoard({ data, readOnly = false }: { data: KanriData; readOn
           )} / 日、目標利益は ${yen(m.dailyProfitTarget)} / 日。`}
         />
 
-        <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-surface">
+        <div className="mt-3 overflow-x-auto rounded-2xl border border-border bg-surface">
           <TableHead cols="1.8fr 1.4fr .9fr .9fr 1.2fr 1fr 56px">
             <div>アクションプラン</div>
             <div>管理項目(KPI)</div>
@@ -415,7 +415,7 @@ function PlanForm({
   const [memo, setMemo] = useState(plan.memo);
 
   return (
-    <div className="mt-3 flex items-end gap-3 rounded-2xl border border-border bg-surface px-[18px] py-4">
+    <div className="mt-3 flex flex-wrap items-end gap-3 rounded-2xl border border-border bg-surface px-[18px] py-4">
       <Field label="目標利益 / 日" className="w-[140px]">
         <input
           value={target}
@@ -495,7 +495,7 @@ function ActionForm({
   const [profitImpact, setProfitImpact] = useState("");
 
   return (
-    <div className="mt-3 flex items-end gap-3 rounded-2xl border border-border bg-surface px-[18px] py-4">
+    <div className="mt-3 flex flex-wrap items-end gap-3 rounded-2xl border border-border bg-surface px-[18px] py-4">
       <Field label="アクションプラン" className="flex-[1.6]">
         <input
           value={title}
@@ -621,7 +621,7 @@ function Metric({
 function TableHead({ cols, children }: { cols: string; children: React.ReactNode }) {
   return (
     <div
-      className="grid items-center gap-3 border-b border-border bg-surface-alt px-[18px] py-3 text-[11px] font-bold text-ink-muted"
+      className="grid min-w-[820px] items-center gap-3 border-b border-border bg-surface-alt px-[18px] py-3 text-[11px] font-bold text-ink-muted"
       style={{ gridTemplateColumns: cols }}
     >
       {children}
@@ -632,7 +632,7 @@ function TableHead({ cols, children }: { cols: string; children: React.ReactNode
 function TableRow({ cols, children }: { cols: string; children: React.ReactNode }) {
   return (
     <div
-      className="grid items-center gap-3 border-b border-border-row px-[18px] py-3 last:border-b-0"
+      className="grid min-w-[820px] items-center gap-3 border-b border-border-row px-[18px] py-3 last:border-b-0"
       style={{ gridTemplateColumns: cols }}
     >
       {children}

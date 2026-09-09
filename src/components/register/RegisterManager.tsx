@@ -224,7 +224,7 @@ export function RegisterManager({
   if (!session.opened) {
     return (
       <div className="anim-fade-up flex h-full items-center justify-center p-6">
-        <div className="w-[440px] rounded-3xl border border-border bg-surface p-7 shadow-card">
+        <div className="w-full max-w-[440px] rounded-3xl border border-border bg-surface p-7 shadow-card">
           <h2 className="text-[19px] font-bold">{session.dayIndex + 1}日目 のレジをはじめる</h2>
           <p className="mt-1 text-[13px] text-ink-muted">
             釣銭準備金を金種ごとに数えて入力してください。レジ締めのときに、この金額と現金売上をもとに差異を出します。
@@ -249,7 +249,7 @@ export function RegisterManager({
     const diff = session.diff ?? 0;
     return (
       <div className="anim-fade-up flex h-full items-center justify-center p-6">
-        <div className="w-[520px] rounded-3xl border border-border bg-surface p-7 shadow-card">
+        <div className="w-full max-w-[520px] rounded-3xl border border-border bg-surface p-7 shadow-card">
           <div className="flex items-baseline justify-between">
             <h2 className="text-[19px] font-bold">{session.dayIndex + 1}日目 は締め済み</h2>
             <span className="text-xs text-ink-muted">
@@ -299,8 +299,8 @@ export function RegisterManager({
 
   // --- 稼働中 ---
   return (
-    <div className="anim-fade-up flex h-full min-h-0">
-      <div className="flex min-w-0 flex-1 flex-col px-5 pt-[18px]">
+    <div className="anim-fade-up flex h-full min-h-0 flex-col lg:flex-row">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col px-4 pt-4 md:px-5 md:pt-[18px]">
         <div className="flex gap-2 pb-4">
           <Chip label="すべて" active={category === ALL} onClick={() => setCategory(ALL)} />
           {categories.map((c) => (
@@ -315,7 +315,7 @@ export function RegisterManager({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto pb-5">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
             {visible.map((p) => {
               const soldOut = p.stockMode === "PREPARED" && p.preparedStock <= 0;
               const low =
@@ -355,7 +355,7 @@ export function RegisterManager({
         </div>
       </div>
 
-      <aside className="flex w-[352px] shrink-0 flex-col border-l border-border bg-surface">
+      <aside className="flex w-full shrink-0 flex-col border-t border-border bg-surface lg:w-full max-w-[352px] lg:border-l lg:border-t-0">
         <div className="flex items-baseline gap-2.5 px-5 pb-3 pt-[18px]">
           <div className="text-[15px] font-bold">お会計</div>
           <div className="num text-xs text-ink-muted">{count}点</div>
@@ -459,7 +459,7 @@ export function RegisterManager({
       )}
       {closeOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(40,35,26,.42)] p-4">
-          <div className="anim-pop w-[440px] rounded-3xl bg-surface p-7 shadow-modal">
+          <div className="anim-pop w-full max-w-[440px] rounded-3xl bg-surface p-7 shadow-modal">
             <h2 className="text-[19px] font-bold">{session.dayIndex + 1}日目 のレジを締める</h2>
             <p className="mt-1 text-[13px] text-ink-muted">
               手元の現金を数えて入力してください。理論在高 {yen(session.theoretical)} と比べます。

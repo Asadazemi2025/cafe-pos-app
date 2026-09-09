@@ -1,10 +1,18 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Toaster } from "sonner";
 import "./globals.css";
 
 // データベース(Supabase)はソウルにあるため、サーバー処理も同じ地域で動かす。
 // 遠い地域から何度も往復すると、それだけで画面表示が数秒遅くなる。
 export const preferredRegion = "icn1";
+
+// スマホで開いたときに、勝手に縮小されず画面幅どおりに表示されるようにする
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: "#f3f0e9",
+};
 
 export const metadata: Metadata = {
   title: "つむぐカフェ",

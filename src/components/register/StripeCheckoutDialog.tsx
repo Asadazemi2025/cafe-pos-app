@@ -123,7 +123,7 @@ export function StripeCheckoutDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(40,35,26,.42)] p-4">
-      <div className="anim-pop w-[520px] rounded-3xl bg-surface px-7 pb-6 pt-[26px] shadow-modal">
+      <div className="anim-pop w-full max-w-[520px] rounded-3xl bg-surface px-7 pb-6 pt-[26px] shadow-modal">
         <div className="flex items-baseline justify-between">
           <span className="flex items-center gap-1 text-[13px] font-bold text-ink-muted">
             <AppleMark className="h-[15px] w-[15px]" />

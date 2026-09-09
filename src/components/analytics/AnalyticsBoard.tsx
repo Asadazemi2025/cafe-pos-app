@@ -57,10 +57,10 @@ export function AnalyticsBoard({ data }: { data: AnalyticsData }) {
   }
 
   return (
-    <div className="anim-fade-up space-y-3.5 p-[22px]">
-      <div className="flex items-stretch gap-3.5">
+    <div className="anim-fade-up space-y-3.5 p-4 md:p-[22px]">
+      <div className="flex flex-col items-stretch gap-3.5 lg:flex-row">
         {/* 損益分岐点 */}
-        <div className="flex-[1.35] rounded-2xl border border-border bg-surface px-[22px] py-5">
+        <div className="flex-[1.35] rounded-2xl border border-border bg-surface px-4 py-5 md:px-[22px]">
           <div className="flex items-baseline gap-3">
             <h2 className="text-[15px] font-bold">損益分岐点</h2>
             <span className="num text-[11px] text-ink-muted">
@@ -139,7 +139,7 @@ export function AnalyticsBoard({ data }: { data: AnalyticsData }) {
       </div>
 
       {/* 日付 × 時間帯ヒートマップ */}
-      <div className="rounded-2xl border border-border bg-surface px-[22px] py-5">
+      <div className="overflow-x-auto rounded-2xl border border-border bg-surface px-4 py-5 md:px-[22px]">
         <div className="flex items-center">
           <h2 className="text-[15px] font-bold">日付 × 時間帯の売上</h2>
           <span className="ml-3 text-[11px] text-ink-muted">
@@ -158,7 +158,7 @@ export function AnalyticsBoard({ data }: { data: AnalyticsData }) {
           </div>
         </div>
 
-        <div className="mt-3.5 grid grid-cols-[112px_repeat(7,1fr)_86px] items-center gap-1.5 text-[10px] text-ink-muted">
+        <div className="mt-3.5 grid min-w-[720px] grid-cols-[112px_repeat(7,1fr)_86px] items-center gap-1.5 text-[10px] text-ink-muted">
           <div />
           {hours.map((h) => (
             <div key={h} className="num text-center">
@@ -168,7 +168,7 @@ export function AnalyticsBoard({ data }: { data: AnalyticsData }) {
           <div className="num text-right">日合計</div>
         </div>
 
-        <div className="mt-1 space-y-1.5">
+        <div className="mt-1 min-w-[720px] space-y-1.5">
           {heatmap.map((row) => {
             const selected = row.dayIndex === data.dayIndex;
             return (
@@ -176,7 +176,7 @@ export function AnalyticsBoard({ data }: { data: AnalyticsData }) {
                 key={row.dayIndex}
                 onClick={() => handleSelectDay(row.dayIndex)}
                 disabled={pending}
-                className={`press press-row grid w-full grid-cols-[112px_repeat(7,1fr)_86px] items-center gap-1.5 rounded-xl border px-1.5 py-1 text-left ${
+                className={`press press-row grid w-full min-w-[720px] grid-cols-[112px_repeat(7,1fr)_86px] items-center gap-1.5 rounded-xl border px-1.5 py-1 text-left ${
                   selected ? "border-[1.5px] border-accent bg-accent-weak" : "border-transparent"
                 }`}
               >
@@ -204,8 +204,8 @@ export function AnalyticsBoard({ data }: { data: AnalyticsData }) {
       </div>
 
       {/* 商品別・時間帯別 */}
-      <div className="flex items-stretch gap-3.5">
-        <div className="flex-1 rounded-2xl border border-border bg-surface px-[22px] py-5">
+      <div className="flex flex-col items-stretch gap-3.5 lg:flex-row">
+        <div className="flex-1 rounded-2xl border border-border bg-surface px-4 py-5 md:px-[22px]">
           <div className="flex items-baseline gap-3">
             <h2 className="text-[15px] font-bold">商品別 売上と粗利</h2>
             <span className="flex items-center gap-2.5 text-[10px] text-ink-muted">
@@ -247,7 +247,7 @@ export function AnalyticsBoard({ data }: { data: AnalyticsData }) {
           </div>
         </div>
 
-        <div className="flex-1 rounded-2xl border border-border bg-surface px-[22px] py-5">
+        <div className="flex-1 rounded-2xl border border-border bg-surface px-4 py-5 md:px-[22px]">
           <h2 className="text-[15px] font-bold">時間帯別の売上</h2>
           <div className="mt-4 flex h-[168px] items-end gap-2.5">
             {summary.byHour.map((h) => {

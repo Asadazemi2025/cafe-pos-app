@@ -78,8 +78,8 @@ export function ExpenseManager({
   }
 
   return (
-    <div className="anim-fade-up p-[22px]">
-      <div className="grid grid-cols-4 gap-3.5">
+    <div className="anim-fade-up p-4 md:p-[22px]">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-3.5">
         <MetricCard label="イベント全体の費用" value={yen(summary.wholeTotal)} note="出店料など" />
         <MetricCard
           label="1日あたりの費用"
@@ -99,10 +99,10 @@ export function ExpenseManager({
         />
       </div>
 
-      <div className="mt-5 flex items-start gap-4">
+      <div className="mt-5 flex flex-col items-stretch gap-4 lg:flex-row lg:items-start">
         <div className="flex-[1.5]">
-          <div className="overflow-hidden rounded-2xl border border-border bg-surface">
-            <div className="grid grid-cols-[1.6fr_108px_1fr_1.3fr_68px] items-center gap-3 border-b border-border bg-surface-alt px-[18px] py-3 text-[11px] font-bold text-ink-muted">
+          <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
+            <div className="grid min-w-[640px] grid-cols-[1.6fr_108px_1fr_1.3fr_68px] items-center gap-3 border-b border-border bg-surface-alt px-[18px] py-3 text-[11px] font-bold text-ink-muted">
               <div>費目</div>
               <div>区分</div>
               <div className="text-right">金額</div>
@@ -113,7 +113,7 @@ export function ExpenseManager({
             {rows.map((row) => (
               <div
                 key={row.id}
-                className="grid grid-cols-[1.6fr_108px_1fr_1.3fr_68px] items-center gap-3 border-b border-border-row px-[18px] py-[13px] last:border-b-0"
+                className="grid min-w-[640px] grid-cols-[1.6fr_108px_1fr_1.3fr_68px] items-center gap-3 border-b border-border-row px-[18px] py-[13px] last:border-b-0"
               >
                 <div>
                   <div className="text-sm font-bold">{row.name}</div>

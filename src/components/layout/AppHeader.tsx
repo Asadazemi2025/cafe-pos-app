@@ -8,6 +8,7 @@ import type { CurrentEvent } from "@/lib/event";
 const TITLES: Record<string, string> = {
   "/register": "レジ",
   "/stock": "在庫管理",
+  "/recipes": "レシピと原価",
   "/expenses": "経費",
   "/analytics": "損益と分析",
   "/kanri": "管理会計",
@@ -32,21 +33,21 @@ export function AppHeader({
   const day = event.dayList[event.dayIndex];
 
   return (
-    <header className="flex h-16 shrink-0 items-center gap-4 border-b border-border bg-surface px-[22px]">
+    <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border bg-surface px-4 py-2 md:h-16 md:flex-nowrap md:gap-4 md:px-[22px] md:py-0">
       <div className="text-[17px] font-bold tracking-[.01em]">{title}</div>
-      <div className="h-[22px] w-px bg-border" />
+      <div className="hidden h-[22px] w-px bg-border md:block" />
       <div>
         <div className="text-[13px] font-bold">{event.name}</div>
         <div className="text-[11px] text-ink-muted">{event.rangeLabel}</div>
       </div>
       <Link
         href="/select-event"
-        className="press press-chip flex items-center gap-[5px] rounded-[9px] border border-border bg-surface px-3 py-[7px] text-xs font-bold text-ink-muted hover:border-accent hover:text-accent-deep"
+        className="press press-chip hidden items-center gap-[5px] rounded-[9px] border border-border bg-surface px-3 py-[7px] text-xs font-bold text-ink-muted hover:border-accent hover:text-accent-deep sm:flex"
       >
         <span className="text-sm leading-none">‹</span>イベント一覧
       </Link>
 
-      <div className="ml-auto flex items-center gap-[18px]">
+      <div className="ml-auto flex items-center gap-3 md:gap-[18px]">
         <div className="text-right">
           <div className="num text-[10px] tracking-[.1em] text-ink-muted">
             {day ? `${day.label} ／ ${day.dateLabel}` : ""}

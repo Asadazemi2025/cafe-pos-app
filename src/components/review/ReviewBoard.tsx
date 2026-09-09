@@ -59,7 +59,7 @@ export function ReviewBoard({ data, readOnly = false }: { data: ReviewData; read
   }
 
   return (
-    <div className="anim-fade-up flex items-start gap-3.5 p-[22px]">
+    <div className="anim-fade-up flex flex-col items-stretch gap-3.5 p-4 md:p-[22px] lg:flex-row lg:items-start">
       <div className="min-w-0 flex-1">
         <h2 className="text-[15px] font-bold">アプリからの気づき</h2>
         <p className="mt-1 text-[11px] text-ink-muted">
@@ -89,7 +89,7 @@ export function ReviewBoard({ data, readOnly = false }: { data: ReviewData; read
         </div>
 
         <h2 className="mt-6 text-[15px] font-bold">この日の数字</h2>
-        <div className="mt-3 grid grid-cols-4 gap-3.5">
+        <div className="mt-3 grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-3.5">
           {data.numbers.map((n) => (
             <div key={n.key} className="rounded-2xl border border-border bg-surface px-[18px] py-4">
               <div className="num text-[10px] tracking-[.12em] text-ink-muted">{n.key}</div>
@@ -100,7 +100,7 @@ export function ReviewBoard({ data, readOnly = false }: { data: ReviewData; read
         </div>
       </div>
 
-      <div className="w-[392px] shrink-0 rounded-2xl border border-border bg-surface p-[18px]">
+      <div className="w-full shrink-0 rounded-2xl border border-border bg-surface p-[18px] lg:w-[392px]">
         <h2 className="text-[15px] font-bold">営業日誌</h2>
         <p className="mt-1 text-[11px] text-ink-muted">
           次に出店する人が読みます。数字に出ないことを残しておきましょう。

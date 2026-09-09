@@ -26,7 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const registerActive = !!session?.openedAt && !session?.closedAt;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-bg">
+    <div className="flex h-screen flex-col overflow-hidden bg-bg md:flex-row">
       <NavRail />
       <div className="flex min-w-0 flex-1 flex-col">
         <AppHeader
@@ -37,7 +37,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         />
         <DayBar days={event.dayList} dayIndex={event.dayIndex} registerActive={registerActive} />
         {role === "viewer" && <ViewerModeBanner />}
-        <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
+        <main className="min-h-0 flex-1 overflow-y-auto pb-[60px] md:pb-0">{children}</main>
       </div>
     </div>
   );

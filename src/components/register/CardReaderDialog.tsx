@@ -142,7 +142,7 @@ export function CardReaderDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(40,35,26,.42)] p-4">
-      <div className="anim-pop w-[440px] rounded-3xl bg-surface px-7 pb-6 pt-[26px] shadow-modal">
+      <div className="anim-pop w-full max-w-[440px] rounded-3xl bg-surface px-7 pb-6 pt-[26px] shadow-modal">
         <div className="flex items-baseline justify-between">
           <span className="text-[13px] font-bold text-ink-muted">カードリーダーでお支払い</span>
           <span className="num text-[34px] font-bold tracking-[-.02em]">{yen(total)}</span>

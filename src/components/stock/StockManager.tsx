@@ -64,8 +64,8 @@ export function StockManager({
   }
 
   return (
-    <div className="anim-fade-up p-[22px]">
-      <div className="grid grid-cols-3 gap-3.5">
+    <div className="anim-fade-up p-4 md:p-[22px]">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-3.5">
         <SummaryCard
           label="在庫金額(原価)"
           value={yen(summary.stockValue)}
@@ -84,14 +84,14 @@ export function StockManager({
         />
       </div>
 
-      <div className="mt-6 flex items-center gap-3">
+      <div className="mt-6 flex flex-wrap items-center gap-2 md:gap-3">
         <h2 className="text-[17px] font-bold">商品マスタ</h2>
         <span className="num text-xs text-ink-muted">{rows.length} 品目</span>
         <Link
-          href="/menu-items"
+          href="/recipes"
           className="press press-chip rounded-[9px] border border-border px-3 py-[7px] text-xs font-bold text-ink-muted hover:border-accent hover:text-accent-deep"
         >
-          レシピ・原価を編集
+          レシピと原価
         </Link>
         <Link
           href="/ingredients"
@@ -103,14 +103,14 @@ export function StockManager({
           onClick={() => {
             if (!guard()) setFormOpen(true);
           }}
-          className="press press-cta ml-auto rounded-[11px] bg-accent px-[18px] py-[11px] text-[13px] font-bold text-white"
+          className="press press-cta ml-auto shrink-0 rounded-[11px] bg-accent px-[18px] py-[11px] text-[13px] font-bold text-white"
         >
           ＋ 商品を登録
         </button>
       </div>
 
-      <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-surface">
-        <div className="grid grid-cols-[1.6fr_.7fr_1.5fr_.8fr_200px] items-center gap-3 border-b border-border bg-surface-alt px-[18px] py-3 text-[11px] font-bold text-ink-muted">
+      <div className="mt-3 overflow-x-auto rounded-2xl border border-border bg-surface">
+        <div className="grid min-w-[760px] grid-cols-[1.6fr_.7fr_1.5fr_.8fr_200px] items-center gap-3 border-b border-border bg-surface-alt px-[18px] py-3 text-[11px] font-bold text-ink-muted">
           <div>商品名</div>
           <div>区分</div>
           <div>残数 / 基準</div>
@@ -124,7 +124,7 @@ export function StockManager({
           return (
             <div
               key={row.id}
-              className="grid grid-cols-[1.6fr_.7fr_1.5fr_.8fr_200px] items-center gap-3 border-b border-border-row px-[18px] py-[13px] last:border-b-0"
+              className="grid min-w-[760px] grid-cols-[1.6fr_.7fr_1.5fr_.8fr_200px] items-center gap-3 border-b border-border-row px-[18px] py-[13px] last:border-b-0"
             >
               <div>
                 <div className="text-sm font-bold">{row.name}</div>

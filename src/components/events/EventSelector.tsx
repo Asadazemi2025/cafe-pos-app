@@ -82,7 +82,7 @@ export function EventSelector({
   if (view === "form") {
     return (
       <div className="anim-fade-up flex min-h-screen items-center justify-center px-4">
-        <div className="w-[560px] rounded-4xl border border-border bg-surface px-9 pb-[30px] pt-[34px] shadow-[0_20px_50px_-24px_rgba(40,35,26,.35)]">
+        <div className="w-full max-w-[560px] rounded-4xl border border-border bg-surface px-9 pb-[30px] pt-[34px] shadow-[0_20px_50px_-24px_rgba(40,35,26,.35)]">
           <div className="flex items-center">
             {events.length > 0 && (
               <button
@@ -144,7 +144,7 @@ export function EventSelector({
 
   return (
     <div className="anim-fade-up flex min-h-screen items-center justify-center px-4">
-      <div className="w-[620px]">
+      <div className="w-full max-w-[620px]">
         <div className="flex items-center">
           <h1 className="text-2xl font-bold">イベントを選ぶ</h1>
           <LogoutButton className="ml-auto" />

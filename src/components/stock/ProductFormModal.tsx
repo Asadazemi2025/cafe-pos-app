@@ -72,7 +72,7 @@ export function ProductFormModal({
       onClick={() => onOpenChange(false)}
     >
       <div
-        className="anim-pop w-[560px] rounded-4xl bg-surface px-8 pb-7 pt-[30px] shadow-modal"
+        className="anim-pop max-h-[calc(100vh-32px)] w-full max-w-[560px] overflow-y-auto rounded-4xl bg-surface px-5 pb-7 pt-[26px] shadow-modal sm:px-8 sm:pt-[30px]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between">
@@ -119,7 +119,7 @@ export function ProductFormModal({
             </div>
           </Field>
 
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Field label="売価">
               <input
                 value={salePrice}

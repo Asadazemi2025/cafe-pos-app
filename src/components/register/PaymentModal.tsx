@@ -73,7 +73,7 @@ export function PaymentModal({
       onClick={onClose}
     >
       <div
-        className="anim-pop max-h-[calc(100vh-32px)] w-[520px] overflow-y-auto rounded-3xl bg-surface px-7 pb-6 pt-[26px] shadow-modal"
+        className="anim-pop max-h-[calc(100vh-32px)] w-full max-w-[520px] overflow-y-auto rounded-3xl bg-surface px-7 pb-6 pt-[26px] shadow-modal"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-baseline justify-between">

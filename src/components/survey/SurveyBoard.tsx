@@ -39,10 +39,10 @@ export function SurveyBoard({ data, readOnly = false }: { data: SurveyData; read
   const maxDist = Math.max(1, ...data.distribution.map((d) => d.count));
 
   return (
-    <div className="anim-fade-up space-y-5 p-[22px]">
-      <div className="flex items-start gap-3.5">
+    <div className="anim-fade-up space-y-5 p-4 md:p-[22px]">
+      <div className="flex flex-col items-stretch gap-3.5 lg:flex-row lg:items-start">
         {/* QRコード */}
-        <div className="w-[280px] shrink-0 rounded-2xl border border-border bg-surface p-[18px] text-center">
+        <div className="w-full shrink-0 rounded-2xl border border-border bg-surface p-[18px] text-center lg:w-[280px]">
           <h2 className="text-[15px] font-bold">回答用のQRコード</h2>
           <p className="mt-1 text-[11px] text-ink-muted">
             レジ横に貼るか、会計後にお見せしてください。
@@ -68,7 +68,7 @@ export function SurveyBoard({ data, readOnly = false }: { data: SurveyData; read
 
         {/* 指標 */}
         <div className="flex-1 space-y-3.5">
-          <div className="grid grid-cols-4 gap-3.5">
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-3.5">
             <Metric label="回答数" value={`${data.total} 件`} note="このイベントの合計" />
             <Metric
               label="平均満足度"
@@ -114,7 +114,7 @@ export function SurveyBoard({ data, readOnly = false }: { data: SurveyData; read
       {data.insights.length > 0 && (
         <section>
           <h2 className="text-[15px] font-bold">アンケートからの気づき</h2>
-          <div className="mt-3 grid grid-cols-2 gap-2.5">
+          <div className="mt-3 grid grid-cols-1 gap-2.5 lg:grid-cols-2">
             {data.insights.map((text, i) => (
               <div
                 key={i}
@@ -133,8 +133,8 @@ export function SurveyBoard({ data, readOnly = false }: { data: SurveyData; read
         <p className="mt-1 text-xs text-ink-muted">
           満足度が上がった日に売上・客単価も上がっているかを見ます。
         </p>
-        <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-surface">
-          <div className="grid grid-cols-[1.4fr_.8fr_1fr_1fr_1fr_1fr] items-center gap-3 border-b border-border bg-surface-alt px-[18px] py-3 text-[11px] font-bold text-ink-muted">
+        <div className="mt-3 overflow-x-auto rounded-2xl border border-border bg-surface">
+          <div className="grid min-w-[700px] grid-cols-[1.4fr_.8fr_1fr_1fr_1fr_1fr] items-center gap-3 border-b border-border bg-surface-alt px-[18px] py-3 text-[11px] font-bold text-ink-muted">
             <div>営業日</div>
             <div className="text-right">回答</div>
             <div className="text-right">平均満足度</div>
@@ -145,7 +145,7 @@ export function SurveyBoard({ data, readOnly = false }: { data: SurveyData; read
           {data.byDay.map((d) => (
             <div
               key={d.dayIndex}
-              className="grid grid-cols-[1.4fr_.8fr_1fr_1fr_1fr_1fr] items-center gap-3 border-b border-border-row px-[18px] py-3 last:border-b-0"
+              className="grid min-w-[700px] grid-cols-[1.4fr_.8fr_1fr_1fr_1fr_1fr] items-center gap-3 border-b border-border-row px-[18px] py-3 last:border-b-0"
             >
               <div className="text-sm font-bold">
                 {d.label}
@@ -166,7 +166,7 @@ export function SurveyBoard({ data, readOnly = false }: { data: SurveyData; read
       </section>
 
       {/* 内訳 */}
-      <section className="grid grid-cols-3 gap-3.5">
+      <section className="grid grid-cols-1 gap-3.5 md:grid-cols-3">
         <Breakdown title="年代" rows={data.ageGroups} />
         <Breakdown title="知ったきっかけ" rows={data.knownFrom} />
         <Breakdown title="よかった商品" rows={data.favorites} />

@@ -92,7 +92,7 @@ export function CompletionModal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(40,35,26,.42)] p-4">
-      <div className="anim-pop w-[480px] rounded-4xl bg-surface p-8 shadow-modal">
+      <div className="anim-pop w-full max-w-[480px] rounded-4xl bg-surface p-8 shadow-modal">
         <div className="flex flex-col items-center">
           <div className="flex h-[60px] w-[60px] items-center justify-center rounded-full bg-accent-weak-2 text-[30px] text-accent">
             ✓

@@ -33,7 +33,7 @@ export function DayBar({
   }
 
   return (
-    <div className="flex h-[46px] shrink-0 items-center gap-[7px] overflow-x-auto border-b border-border bg-surface-bar px-[22px]">
+    <div className="flex h-[46px] shrink-0 items-center gap-[7px] overflow-x-auto border-b border-border bg-surface-bar px-4 md:px-[22px]">
       <div className="pr-1 text-[11px] font-bold text-ink-muted">営業日</div>
       {days.map((d) => {
         const active = d.index === dayIndex;
