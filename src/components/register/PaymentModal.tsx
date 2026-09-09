@@ -1,12 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import type { PaymentMethodDTO } from "@/app/(app)/register/actions";
 import { yen } from "@/lib/money";
 
-const METHODS: { value: PaymentMethodDTO; label: string }[] = [
+// 会計の受け方。CASH と PAYPAY_QR はその場で記録し、
+// STRIPE はStripeの決済ページ(QR)へ進む。
+export type PayChoice = "CASH" | "STRIPE" | "PAYPAY_QR";
+
+const METHODS: { value: PayChoice; label: string; note?: string }[] = [
   { value: "CASH", label: "現金" },
-  { value: "CASHLESS", label: "キャッシュレス" },
+  { value: "STRIPE", label: "カード", note: "Stripeの決済ページをQRで表示します(PayPayも選べます)" },
+  { value: "PAYPAY_QR", label: "PayPay", note: "店舗のPayPay QRで受け取った金額を記録します" },
 ];
 
 const roundUp = (n: number, unit: number) => Math.ceil(n / unit) * unit;
@@ -18,9 +22,9 @@ export function PaymentModal({
 }: {
   total: number;
   onClose: () => void;
-  onPay: (method: PaymentMethodDTO, received: number) => Promise<void>;
+  onPay: (choice: PayChoice, received: number) => Promise<void>;
 }) {
-  const [method, setMethod] = useState<PaymentMethodDTO>("CASH");
+  const [method, setMethod] = useState<PayChoice>("CASH");
   const [received, setReceived] = useState(0);
   const [pending, setPending] = useState(false);
 
@@ -102,6 +106,12 @@ export function PaymentModal({
           </>
         )}
 
+        {method !== "CASH" && (
+          <p className="mt-4 rounded-xl bg-surface-alt px-4 py-3 text-xs text-ink-muted">
+            {METHODS.find((m) => m.value === method)?.note}
+          </p>
+        )}
+
         <div className="mt-5 flex gap-2">
           <button
             onClick={onClose}
@@ -118,8 +128,8 @@ export function PaymentModal({
           >
             {pending
               ? "処理中…"
-              : method === "CASH"
-                ? "現金で会計する"
+              : method === "STRIPE"
+                ? "QRコードを表示する"
                 : `${METHODS.find((m) => m.value === method)?.label}で会計する`}
           </button>
         </div>

@@ -15,7 +15,8 @@ export type CompletedSale = {
 
 const METHOD_LABEL: Record<PaymentMethodDTO, string> = {
   CASH: "現金",
-  CASHLESS: "キャッシュレス",
+  CARD: "カード",
+  PAYPAY: "PayPay",
 };
 
 function stamp(at: Date) {

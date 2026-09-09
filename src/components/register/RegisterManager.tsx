@@ -3,11 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import {
-  checkout,
-  type RegisterMenuItemDTO,
-  type PaymentMethodDTO,
-} from "@/app/(app)/register/actions";
+import { checkout, type RegisterMenuItemDTO } from "@/app/(app)/register/actions";
 import {
   openRegister,
   closeRegister,
@@ -15,7 +11,8 @@ import {
   type SessionDTO,
 } from "@/app/(app)/register/session-actions";
 import { DenominationTable } from "@/components/register/DenominationTable";
-import { PaymentModal } from "@/components/register/PaymentModal";
+import { PaymentModal, type PayChoice } from "@/components/register/PaymentModal";
+import { StripeCheckoutDialog } from "@/components/register/StripeCheckoutDialog";
 import { CompletionModal, type CompletedSale } from "@/components/register/CompletionModal";
 import type { CashCounts } from "@/lib/denominations";
 import { yen } from "@/lib/money";
@@ -39,6 +36,7 @@ export function RegisterManager({
   const [cart, setCart] = useState<Record<string, number>>({});
   const [category, setCategory] = useState<string>(ALL);
   const [payOpen, setPayOpen] = useState(false);
+  const [stripeOpen, setStripeOpen] = useState(false);
   const [done, setDone] = useState<CompletedSale | null>(null);
   const [openCounts, setOpenCounts] = useState<CashCounts>({});
   const [closeCounts, setCloseCounts] = useState<CashCounts>({});
@@ -141,7 +139,23 @@ export function RegisterManager({
     }
   }
 
-  async function handlePay(method: PaymentMethodDTO, received: number) {
+  function receiptLines() {
+    return lines.map((l) => ({
+      name: l.product.name,
+      quantity: l.quantity,
+      unitPrice: l.product.salePrice,
+    }));
+  }
+
+  async function handlePay(choice: PayChoice, received: number) {
+    // カード・PayPay(オンライン)はStripeの決済ページへ。売上の記録は支払い完了後
+    if (choice === "STRIPE") {
+      setPayOpen(false);
+      setStripeOpen(true);
+      return;
+    }
+
+    const method = choice === "PAYPAY_QR" ? "PAYPAY" : "CASH";
     const clientId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const result = await checkout({
       items: lines.map((l) => ({ menuItemId: l.id, quantity: l.quantity })),
@@ -155,17 +169,29 @@ export function RegisterManager({
     setDone({
       no: result.saleNo,
       at: new Date(),
-      lines: lines.map((l) => ({
-        name: l.product.name,
-        quantity: l.quantity,
-        unitPrice: l.product.salePrice,
-      })),
+      lines: receiptLines(),
       total,
       method,
       received: method === "CASH" ? received : total,
       change: method === "CASH" ? Math.max(0, received - total) : 0,
     });
     setPayOpen(false);
+    setCart({});
+    router.refresh();
+  }
+
+  // Stripeの決済ページで支払いが終わったとき(売上はサーバー側で記録済み)
+  function handleStripePaid(method: "CARD" | "PAYPAY", saleNo: string) {
+    setDone({
+      no: saleNo,
+      at: new Date(),
+      lines: receiptLines(),
+      total,
+      method,
+      received: total,
+      change: 0,
+    });
+    setStripeOpen(false);
     setCart({});
     router.refresh();
   }
@@ -387,6 +413,14 @@ export function RegisterManager({
 
       {payOpen && (
         <PaymentModal total={total} onClose={() => setPayOpen(false)} onPay={handlePay} />
+      )}
+      {stripeOpen && (
+        <StripeCheckoutDialog
+          total={total}
+          items={lines.map((l) => ({ menuItemId: l.id, quantity: l.quantity }))}
+          onCancel={() => setStripeOpen(false)}
+          onPaid={handleStripePaid}
+        />
       )}
       {done && (
         <CompletionModal sale={done} storeName={storeName} onClose={() => setDone(null)} />
