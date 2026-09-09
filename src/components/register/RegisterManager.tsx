@@ -162,7 +162,8 @@ export function RegisterManager({
       return;
     }
 
-    const method = choice === "PAYPAY_QR" ? "PAYPAY" : "CASH";
+    const method =
+      choice === "PAYPAY_QR" ? "PAYPAY" : choice === "EMONEY" ? "EMONEY" : "CASH";
     const clientId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const result = await checkout({
       items: lines.map((l) => ({ menuItemId: l.id, quantity: l.quantity })),

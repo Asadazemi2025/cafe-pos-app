@@ -140,6 +140,8 @@ enum PaymentMethod {
   CASHLESS
   // PayPay(店舗のQRコードで受け取ったぶんの記録、およびStripe経由のPayPay決済)
   PAYPAY
+  // iD・QUICPay・交通系ICなどの電子マネー(別の決済端末で処理したぶんの記録)
+  EMONEY
   // 使用しない。過去の売上が参照している可能性があるため定義だけ残す
   POINT
 }

@@ -17,6 +17,7 @@ const METHOD_LABEL: Record<PaymentMethodDTO, string> = {
   CASH: "現金",
   CARD: "カード",
   PAYPAY: "PayPay",
+  EMONEY: "電子マネー",
 };
 
 function stamp(at: Date) {

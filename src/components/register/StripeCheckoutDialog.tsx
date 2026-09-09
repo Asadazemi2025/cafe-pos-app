@@ -9,9 +9,10 @@ import {
 } from "@/app/(app)/register/stripe-actions";
 import type { CartLine } from "@/lib/register-sale";
 import { yen } from "@/lib/money";
+import { AppleMark } from "@/components/ui/AppleMark";
 
 // Stripeの決済ページをQRコードで出す画面。
-// お客さまが自分のスマホで読み取り、カードまたはPayPayで支払う。
+// お客さまがiPhoneで読み取ればApple Pay、そのほかカードやPayPayでも支払える。
 // 支払いが終わったかどうかは、レジ側から数秒おきに確認する。
 const POLL_MS = 3000;
 const TIMEOUT_MS = 10 * 60 * 1000;
@@ -108,7 +109,7 @@ export function StripeCheckoutDialog({
         // QRが作れなくてもリンクは出せるので、そのまま続ける
       }
       setStatus("waiting");
-      setMessage("お客さまのスマホでQRコードを読み取ってください");
+      setMessage("お客さまのiPhoneでQRコードを読み取ってください");
       timer = setTimeout(() => void poll(created.sessionId), POLL_MS);
     })();
 
@@ -124,7 +125,10 @@ export function StripeCheckoutDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(40,35,26,.42)] p-4">
       <div className="anim-pop w-[520px] rounded-3xl bg-surface px-7 pb-6 pt-[26px] shadow-modal">
         <div className="flex items-baseline justify-between">
-          <span className="text-[13px] font-bold text-ink-muted">カード・PayPayでお支払い</span>
+          <span className="flex items-center gap-1 text-[13px] font-bold text-ink-muted">
+            <AppleMark className="h-[15px] w-[15px]" />
+            Payでお支払い
+          </span>
           <span className="num text-[34px] font-bold tracking-[-.02em]">{yen(total)}</span>
         </div>
 
@@ -152,7 +156,7 @@ export function StripeCheckoutDialog({
 
           {status === "waiting" && (
             <p className="mt-1 text-center text-[11px] text-ink-placeholder">
-              カード・PayPayなど、Stripeで有効にしている支払い方法が表示されます。
+              iPhoneのカメラで読み取ると、Apple Payで支払えます(カード・PayPayも選べます)。
               支払いが終わると自動でこの画面が進みます。
             </p>
           )}

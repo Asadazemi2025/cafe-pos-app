@@ -2,20 +2,27 @@
 
 import { useState } from "react";
 import { yen } from "@/lib/money";
+import { AppleMark } from "@/components/ui/AppleMark";
 
 // 会計の受け方。CASH と PAYPAY_QR はその場で記録し、
 // READER はカードリーダー、STRIPE はStripeの決済ページ(QR)へ進む。
-export type PayChoice = "CASH" | "READER" | "STRIPE" | "PAYPAY_QR";
+export type PayChoice = "CASH" | "READER" | "STRIPE" | "PAYPAY_QR" | "EMONEY";
 
-const METHODS: { value: PayChoice; label: string; note?: string }[] = [
+const METHODS: { value: PayChoice; label: string; apple?: boolean; note?: string }[] = [
   { value: "CASH", label: "現金" },
   { value: "READER", label: "カード", note: "手元のカードリーダーでカードを読み取ります" },
   {
     value: "STRIPE",
-    label: "QR決済",
-    note: "Stripeの決済ページをQRで表示し、お客さまのスマホで支払っていただきます(カード・PayPay)",
+    label: "Pay",
+    apple: true,
+    note: "QRコードを表示します。お客さまがiPhoneで読み取ると、Apple Payで支払えます(カード・PayPayも選べます)",
   },
   { value: "PAYPAY_QR", label: "PayPay", note: "店舗のPayPay QRで受け取った金額を記録します" },
+  {
+    value: "EMONEY",
+    label: "電子マネー",
+    note: "iD・QUICPay・交通系ICなど。決済端末で処理した金額をこのアプリに記録します",
+  },
 ];
 
 const roundUp = (n: number, unit: number) => Math.ceil(n / unit) * unit;
@@ -62,7 +69,7 @@ export function PaymentModal({
           <span className="num text-[34px] font-bold tracking-[-.02em]">{yen(total)}</span>
         </div>
 
-        <div className="mt-5 grid grid-cols-4 gap-2">
+        <div className="mt-5 grid grid-cols-3 gap-2">
           {METHODS.map((m) => {
             const on = method === m.value;
             return (
@@ -72,12 +79,13 @@ export function PaymentModal({
                   setMethod(m.value);
                   setReceived(0);
                 }}
-                className={`press press-chip rounded-xl border py-3 text-[13px] font-bold ${
+                className={`press press-chip flex items-center justify-center gap-[3px] rounded-xl border py-3 text-[13px] font-bold ${
                   on
                     ? "border-accent bg-accent-weak text-accent-deep"
                     : "border-border bg-surface text-ink-muted"
                 }`}
               >
+                {m.apple && <AppleMark />}
                 {m.label}
               </button>
             );
@@ -131,13 +139,18 @@ export function PaymentModal({
               canPay ? "bg-accent" : "bg-[#c7c0b2]"
             }`}
           >
-            {pending
-              ? "処理中…"
-              : method === "STRIPE"
-                ? "QRコードを表示する"
-                : method === "READER"
-                  ? "カードを読み取る"
-                  : `${METHODS.find((m) => m.value === method)?.label}で会計する`}
+            {pending ? (
+              "処理中…"
+            ) : method === "STRIPE" ? (
+              <span className="inline-flex items-center gap-1">
+                <AppleMark className="h-[17px] w-[17px]" />
+                Payで支払う(QRを表示)
+              </span>
+            ) : method === "READER" ? (
+              "カードを読み取る"
+            ) : (
+              `${METHODS.find((m) => m.value === method)?.label}で会計する`
+            )}
           </button>
         </div>
       </div>
