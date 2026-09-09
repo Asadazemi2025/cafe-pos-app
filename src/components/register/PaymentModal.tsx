@@ -4,12 +4,17 @@ import { useState } from "react";
 import { yen } from "@/lib/money";
 
 // 会計の受け方。CASH と PAYPAY_QR はその場で記録し、
-// STRIPE はStripeの決済ページ(QR)へ進む。
-export type PayChoice = "CASH" | "STRIPE" | "PAYPAY_QR";
+// READER はカードリーダー、STRIPE はStripeの決済ページ(QR)へ進む。
+export type PayChoice = "CASH" | "READER" | "STRIPE" | "PAYPAY_QR";
 
 const METHODS: { value: PayChoice; label: string; note?: string }[] = [
   { value: "CASH", label: "現金" },
-  { value: "STRIPE", label: "カード", note: "Stripeの決済ページをQRで表示します(PayPayも選べます)" },
+  { value: "READER", label: "カード", note: "手元のカードリーダーでカードを読み取ります" },
+  {
+    value: "STRIPE",
+    label: "QR決済",
+    note: "Stripeの決済ページをQRで表示し、お客さまのスマホで支払っていただきます(カード・PayPay)",
+  },
   { value: "PAYPAY_QR", label: "PayPay", note: "店舗のPayPay QRで受け取った金額を記録します" },
 ];
 
@@ -57,7 +62,7 @@ export function PaymentModal({
           <span className="num text-[34px] font-bold tracking-[-.02em]">{yen(total)}</span>
         </div>
 
-        <div className="mt-5 grid grid-cols-3 gap-2">
+        <div className="mt-5 grid grid-cols-4 gap-2">
           {METHODS.map((m) => {
             const on = method === m.value;
             return (
@@ -130,7 +135,9 @@ export function PaymentModal({
               ? "処理中…"
               : method === "STRIPE"
                 ? "QRコードを表示する"
-                : `${METHODS.find((m) => m.value === method)?.label}で会計する`}
+                : method === "READER"
+                  ? "カードを読み取る"
+                  : `${METHODS.find((m) => m.value === method)?.label}で会計する`}
           </button>
         </div>
       </div>

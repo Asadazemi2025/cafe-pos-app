@@ -22,6 +22,14 @@ function originFromHeaders(): string {
   return `${proto}://${host}`;
 }
 
+async function assertRegisterOpen(eventId: string, dayIndex: number) {
+  const session = await prisma.dailyRegister.findUnique({
+    where: { eventId_dayIndex: { eventId, dayIndex } },
+  });
+  if (!session?.openedAt) throw new Error("先にレジをはじめてください。");
+  if (session.closedAt) throw new Error("このレジは締め済みです。");
+}
+
 export type CreateCheckoutResult =
   | { ok: true; sessionId: string; url: string }
   | { ok: false; message: string };
@@ -40,11 +48,7 @@ export async function createCheckoutSession(items: CartLine[]): Promise<CreateCh
     const dayIndex = getCurrentDayIndex();
 
     // 締め済み・未開店のレジでは会計できない(現金と同じ扱い)
-    const session = await prisma.dailyRegister.findUnique({
-      where: { eventId_dayIndex: { eventId, dayIndex } },
-    });
-    if (!session?.openedAt) return { ok: false, message: "先にレジをはじめてください。" };
-    if (session.closedAt) return { ok: false, message: "このレジは締め済みです。" };
+    await assertRegisterOpen(eventId, dayIndex);
 
     const menuItems = await prisma.menuItem.findMany({
       where: { id: { in: items.map((i) => i.menuItemId) } },
@@ -150,6 +154,92 @@ export async function finalizeCheckoutSale(
 
     revalidatePath("/register");
     return { ok: true, saleId: result.saleId, saleNo: result.saleNo, method };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "会計の記録に失敗しました。" };
+  }
+}
+
+// ---------- カードリーダー(Stripe Terminal) ----------
+// 実機のリーダーで支払う場合はこちら。レジ側で金額を作り、
+// リーダーでカードを読み取ってから売上を記録する。
+
+export type CreatePaymentIntentResult =
+  | { ok: true; clientSecret: string; paymentIntentId: string }
+  | { ok: false; message: string };
+
+export async function createCardPaymentIntent(
+  items: CartLine[],
+): Promise<CreatePaymentIntentResult> {
+  try {
+    requireEditAuth();
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "この操作はできません。" };
+  }
+
+  if (items.length === 0) return { ok: false, message: "カートが空です。" };
+
+  try {
+    const eventId = requireCurrentEvent();
+    const dayIndex = getCurrentDayIndex();
+    await assertRegisterOpen(eventId, dayIndex);
+
+    const menuItems = await prisma.menuItem.findMany({
+      where: { id: { in: items.map((i) => i.menuItemId) } },
+    });
+    let amount = 0;
+    for (const line of items) {
+      const menuItem = menuItems.find((m) => m.id === line.menuItemId);
+      if (!menuItem) return { ok: false, message: "存在しないメニューが含まれています。" };
+      amount += menuItem.salePrice.toNumber() * line.quantity;
+    }
+
+    const stripe = getStripeClient();
+    // 日本円は小数点以下の桁がないため、amountはそのまま円の整数値
+    const intent = await stripe.paymentIntents.create({
+      amount: Math.round(amount),
+      currency: "jpy",
+      payment_method_types: ["card_present"],
+      capture_method: "automatic",
+      metadata: { eventId, dayIndex: String(dayIndex) },
+    });
+
+    return { ok: true, clientSecret: intent.client_secret!, paymentIntentId: intent.id };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "決済の準備に失敗しました。" };
+  }
+}
+
+export type FinalizeCardSaleResult =
+  | { ok: true; saleId: string; saleNo: string }
+  | { ok: false; message: string };
+
+export async function finalizeCardSale(
+  paymentIntentId: string,
+  items: CartLine[],
+): Promise<FinalizeCardSaleResult> {
+  try {
+    requireEditAuth();
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "この操作はできません。" };
+  }
+
+  try {
+    const stripe = getStripeClient();
+    const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
+    if (intent.status !== "succeeded") {
+      return { ok: false, message: "カード決済が完了していません。" };
+    }
+
+    const result = await performSale({
+      items,
+      paymentMethod: "CARD",
+      eventId: requireCurrentEvent(),
+      dayIndex: getCurrentDayIndex(),
+      stripePaymentIntentId: paymentIntentId,
+      clientId: `stripe-${paymentIntentId}`,
+    });
+    revalidatePath("/register");
+    return { ok: true, saleId: result.saleId, saleNo: result.saleNo };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : "会計の記録に失敗しました。" };
   }

@@ -13,6 +13,7 @@ import {
 import { DenominationTable } from "@/components/register/DenominationTable";
 import { PaymentModal, type PayChoice } from "@/components/register/PaymentModal";
 import { StripeCheckoutDialog } from "@/components/register/StripeCheckoutDialog";
+import { CardReaderDialog } from "@/components/register/CardReaderDialog";
 import { CompletionModal, type CompletedSale } from "@/components/register/CompletionModal";
 import type { CashCounts } from "@/lib/denominations";
 import { yen } from "@/lib/money";
@@ -37,6 +38,7 @@ export function RegisterManager({
   const [category, setCategory] = useState<string>(ALL);
   const [payOpen, setPayOpen] = useState(false);
   const [stripeOpen, setStripeOpen] = useState(false);
+  const [readerOpen, setReaderOpen] = useState(false);
   const [done, setDone] = useState<CompletedSale | null>(null);
   const [openCounts, setOpenCounts] = useState<CashCounts>({});
   const [closeCounts, setCloseCounts] = useState<CashCounts>({});
@@ -148,7 +150,12 @@ export function RegisterManager({
   }
 
   async function handlePay(choice: PayChoice, received: number) {
-    // カード・PayPay(オンライン)はStripeの決済ページへ。売上の記録は支払い完了後
+    // カードリーダー・QR決済は、支払いが終わってから売上を記録する
+    if (choice === "READER") {
+      setPayOpen(false);
+      setReaderOpen(true);
+      return;
+    }
     if (choice === "STRIPE") {
       setPayOpen(false);
       setStripeOpen(true);
@@ -176,6 +183,22 @@ export function RegisterManager({
       change: method === "CASH" ? Math.max(0, received - total) : 0,
     });
     setPayOpen(false);
+    setCart({});
+    router.refresh();
+  }
+
+  // カードリーダーで支払いが終わったとき(売上はサーバー側で記録済み)
+  function handleReaderPaid(saleNo: string) {
+    setDone({
+      no: saleNo,
+      at: new Date(),
+      lines: receiptLines(),
+      total,
+      method: "CARD",
+      received: total,
+      change: 0,
+    });
+    setReaderOpen(false);
     setCart({});
     router.refresh();
   }
@@ -413,6 +436,14 @@ export function RegisterManager({
 
       {payOpen && (
         <PaymentModal total={total} onClose={() => setPayOpen(false)} onPay={handlePay} />
+      )}
+      {readerOpen && (
+        <CardReaderDialog
+          total={total}
+          items={lines.map((l) => ({ menuItemId: l.id, quantity: l.quantity }))}
+          onCancel={() => setReaderOpen(false)}
+          onPaid={handleReaderPaid}
+        />
       )}
       {stripeOpen && (
         <StripeCheckoutDialog
