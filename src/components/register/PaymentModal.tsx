@@ -40,6 +40,18 @@ export function PaymentModal({
   const [received, setReceived] = useState(0);
   const [pending, setPending] = useState(false);
 
+  // テンキー入力。1桁ずつ足していき、100万円で打ち止めにする
+  function pushDigits(digits: string) {
+    setReceived((prev) => {
+      const next = Number(`${prev === 0 ? "" : prev}${digits}`);
+      return Number.isFinite(next) ? Math.min(next, 1_000_000) : prev;
+    });
+  }
+
+  function backspace() {
+    setReceived((prev) => Math.floor(prev / 10));
+  }
+
   // お預かりのプリセット: 合計そのまま / 500円単位 / 1000円単位 / 次の5000円
   const presets = [...new Set([total, roundUp(total, 500), roundUp(total, 1000), roundUp(total + 1, 5000)])].slice(0, 4);
   const change = received - total;
@@ -61,7 +73,7 @@ export function PaymentModal({
       onClick={onClose}
     >
       <div
-        className="anim-pop w-[520px] rounded-3xl bg-surface px-7 pb-6 pt-[26px] shadow-modal"
+        className="anim-pop max-h-[calc(100vh-32px)] w-[520px] overflow-y-auto rounded-3xl bg-surface px-7 pb-6 pt-[26px] shadow-modal"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-baseline justify-between">
@@ -94,7 +106,17 @@ export function PaymentModal({
 
         {method === "CASH" && (
           <>
-            <div className="mt-5 text-xs font-bold text-ink-muted">お預かり</div>
+            <div className="mt-5 flex items-baseline justify-between">
+              <span className="text-xs font-bold text-ink-muted">お預かり</span>
+              <span
+                className={`num text-[26px] font-bold tracking-[-.01em] ${
+                  received === 0 ? "text-ink-placeholder" : ""
+                }`}
+              >
+                {yen(received)}
+              </span>
+            </div>
+
             <div className="mt-2 grid grid-cols-4 gap-2">
               {presets.map((v) => (
                 <button
@@ -110,10 +132,36 @@ export function PaymentModal({
                 </button>
               ))}
             </div>
-            <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
+
+            {/* テンキー。手入力でも預かり金額を入れられるようにする */}
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((n) => (
+                <Key key={n} onClick={() => pushDigits(n)}>
+                  {n}
+                </Key>
+              ))}
+              <Key onClick={() => pushDigits("00")}>00</Key>
+              <Key onClick={() => pushDigits("0")}>0</Key>
+              <Key onClick={backspace} muted>
+                ←
+              </Key>
+            </div>
+
+            <div className="mt-2 flex justify-end">
+              <button
+                onClick={() => setReceived(0)}
+                className="press press-chip rounded-[9px] border border-border px-3 py-[7px] text-xs font-bold text-ink-muted hover:border-danger hover:text-danger"
+              >
+                クリア
+              </button>
+            </div>
+
+            <div className="mt-3 flex items-center justify-between border-t border-border pt-4">
               <span className="text-[13px] font-bold text-ink-muted">おつり</span>
-              <span className="num text-[22px] font-bold">
-                {received > 0 ? yen(Math.max(0, change)) : "—"}
+              <span
+                className={`num text-[22px] font-bold ${change < 0 ? "text-ink-placeholder" : ""}`}
+              >
+                {received > 0 ? (change < 0 ? `不足 ${yen(-change)}` : yen(change)) : "—"}
               </span>
             </div>
           </>
@@ -155,5 +203,26 @@ export function PaymentModal({
         </div>
       </div>
     </div>
+  );
+}
+
+function Key({
+  children,
+  onClick,
+  muted = false,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  muted?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`num press press-step rounded-xl border border-border py-[13px] text-[19px] font-bold ${
+        muted ? "bg-surface-alt text-ink-muted" : "bg-surface"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
