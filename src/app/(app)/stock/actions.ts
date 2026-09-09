@@ -35,6 +35,10 @@ export type StockRow = {
 export type StockSummary = {
   /** 材料+仕込み済みメニューの在庫金額(原価) */
   stockValue: number;
+  /** 内訳: 材料の在庫金額 */
+  ingredientValue: number;
+  /** 内訳: 仕込み済みメニューの在庫金額 */
+  preparedValue: number;
   /** 選択中の営業日に売れた点数と、その原価 */
   soldUnits: number;
   soldCost: number;
@@ -137,6 +141,8 @@ export async function getStock(): Promise<{ rows: StockRow[]; summary: StockSumm
     rows,
     summary: {
       stockValue: ingredientValue + preparedValue,
+      ingredientValue,
+      preparedValue,
       soldUnits: soldItems.reduce((s, i) => s + i.quantity, 0),
       soldCost: soldItems.reduce((s, i) => s + i.unitCost.toNumber() * i.quantity, 0),
       lowCount: rows.filter((r) => r.state !== "ok").length,

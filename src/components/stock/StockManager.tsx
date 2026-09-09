@@ -75,7 +75,7 @@ export function StockManager({
         <SummaryCard
           label="在庫金額(原価)"
           value={yen(summary.stockValue)}
-          note="材料＋仕込み済みの合計"
+          note={`材料 ${yen(summary.ingredientValue)}＋仕込み ${yen(summary.preparedValue)}`}
         />
         <SummaryCard
           label="この日の出庫"
