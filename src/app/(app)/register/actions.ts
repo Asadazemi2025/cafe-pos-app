@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 
 import { performSale, voidSale as voidSaleCore, type CartLine } from "@/lib/register-sale";
 
-export type PaymentMethodDTO = "CASH" | "CASHLESS" | "POINT";
+export type PaymentMethodDTO = "CASH" | "CASHLESS";
 
 export type RegisterMenuItemDTO = {
   id: string;

@@ -7,7 +7,6 @@ import { yen } from "@/lib/money";
 const METHODS: { value: PaymentMethodDTO; label: string }[] = [
   { value: "CASH", label: "現金" },
   { value: "CASHLESS", label: "キャッシュレス" },
-  { value: "POINT", label: "学内ポイント" },
 ];
 
 const roundUp = (n: number, unit: number) => Math.ceil(n / unit) * unit;
