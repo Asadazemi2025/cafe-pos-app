@@ -9,6 +9,7 @@ import {
   carryOverStock,
   decrementStock,
   deleteProduct,
+  resetEventStock,
   updatePar,
   type CarryOverCandidate,
   type StockRow,
@@ -225,11 +226,31 @@ export function StockManager({
         )}
       </div>
 
+      <div className="mt-3 flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-surface px-[18px] py-3.5">
+        <span className="text-[13px] font-bold">このイベントの在庫</span>
+        <span className="text-[11px] text-ink-muted">
+          在庫はイベントごとに分かれています。数字が前のイベントのままになっているときは、
+          いったん0に戻してから数え直してください。
+        </span>
+        <button
+          onClick={() => {
+            if (guard()) return;
+            if (!confirm("このイベントの在庫をすべて0に戻します。材料やメニューは消えません。よろしいですか？"))
+              return;
+            void run("reset", () => resetEventStock(), "在庫を0に戻しました。");
+          }}
+          disabled={!!pending}
+          className="press press-cta ml-auto rounded-[9px] border border-border px-3.5 py-2 text-xs font-bold text-ink-muted hover:border-danger hover:text-danger disabled:opacity-40"
+        >
+          在庫を0に戻す
+        </button>
+      </div>
+
       {carryOver.length > 0 && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-surface px-[18px] py-3.5">
+        <div className="mt-2.5 flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-surface px-[18px] py-3.5">
           <span className="text-[13px] font-bold">前のイベントの残りを引き継ぐ</span>
           <span className="text-[11px] text-ink-muted">
-            在庫はイベントごとに分かれています。前回の余りを持ち込むときだけ使ってください。
+            前回の余りを持ち込むときだけ使ってください。
           </span>
           <select
             value={carrySource}

@@ -295,3 +295,19 @@ export async function carryOverStock(fromEventId: string): Promise<void> {
   revalidatePath("/stock");
   revalidatePath("/register");
 }
+
+/**
+ * いま選んでいるイベントの在庫をすべて0に戻す。
+ * 引き継ぎを押し間違えたときや、前のイベントの数字が入ってしまったときに使う。
+ * 材料・メニュー・レシピそのものは消えない。
+ */
+export async function resetEventStock(): Promise<void> {
+  requireEditAuth();
+  const eventId = requireCurrentEvent();
+  await prisma.$transaction([
+    prisma.eventIngredientStock.deleteMany({ where: { eventId } }),
+    prisma.eventMenuStock.deleteMany({ where: { eventId } }),
+  ]);
+  revalidatePath("/stock");
+  revalidatePath("/register");
+}
