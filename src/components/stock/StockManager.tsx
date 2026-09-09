@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   addStock,
+  carryOverStock,
   decrementStock,
   deleteProduct,
   updatePar,
+  type CarryOverCandidate,
   type StockRow,
   type StockSummary,
 } from "@/app/(app)/stock/actions";
@@ -31,14 +33,17 @@ function barColor(ratio: number): string {
 export function StockManager({
   rows,
   summary,
+  carryOver = [],
   readOnly = false,
 }: {
   rows: StockRow[];
   summary: StockSummary;
+  carryOver?: CarryOverCandidate[];
   readOnly?: boolean;
 }) {
   const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
+  const [carrySource, setCarrySource] = useState("");
   const [pending, setPending] = useState<string | null>(null);
 
   function guard(): boolean {
@@ -220,7 +225,41 @@ export function StockManager({
         )}
       </div>
 
+      {carryOver.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-surface px-[18px] py-3.5">
+          <span className="text-[13px] font-bold">前のイベントの残りを引き継ぐ</span>
+          <span className="text-[11px] text-ink-muted">
+            在庫はイベントごとに分かれています。前回の余りを持ち込むときだけ使ってください。
+          </span>
+          <select
+            value={carrySource}
+            onChange={(e) => setCarrySource(e.target.value)}
+            className="ml-auto rounded-[9px] border border-border px-2.5 py-2 text-xs outline-none focus:border-accent"
+          >
+            <option value="">イベントを選ぶ</option>
+            {carryOver.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}({c.dateLabel})
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => {
+              if (guard() || !carrySource) return;
+              if (!confirm("いまのイベントの在庫は、選んだイベントの残りで置き換わります。よろしいですか？"))
+                return;
+              void run("carry", () => carryOverStock(carrySource), "在庫を引き継ぎました。");
+            }}
+            disabled={!carrySource || !!pending}
+            className="press press-cta rounded-[9px] border border-border px-3.5 py-2 text-xs font-bold text-ink-muted hover:border-accent hover:text-accent-deep disabled:opacity-40"
+          >
+            引き継ぐ
+          </button>
+        </div>
+      )}
+
       <p className="mt-2.5 text-xs text-ink-muted">
+        在庫はイベントごとに分かれています。ほかのイベントの残りはここには出ません。
         「注文後に作る」商品の残数は、材料の在庫から「あと何個作れるか」を自動計算しています。
         「＋1」「＋10 追加」は仕込みとして記録され、レシピ通りに材料が減ります。
       </p>

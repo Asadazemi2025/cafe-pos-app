@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { requireAuth, requireEditAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireCurrentEvent } from "@/lib/event";
+import { getIngredientStockMap } from "@/lib/event-stock";
 import { Prisma } from "@prisma/client";
 
 export type RecipeLineDTO = {
@@ -42,6 +44,7 @@ export async function getRecipes(): Promise<{
 }> {
   requireAuth();
 
+  const stocks = await getIngredientStockMap(requireCurrentEvent());
   const [items, ingredients, recipes] = await Promise.all([
     prisma.menuItem.findMany({ where: { isTest: false }, orderBy: { name: "asc" } }),
     prisma.ingredient.findMany({ where: { isTest: false }, orderBy: { name: "asc" } }),
@@ -86,7 +89,7 @@ export async function getRecipes(): Promise<{
       name: i.name,
       unit: i.unit,
       costPerUnit: i.costPerUnit.toNumber(),
-      stock: i.stock.toNumber(),
+      stock: stocks.get(i.id) ?? 0,
     })),
   };
 }

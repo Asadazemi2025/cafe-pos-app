@@ -26,6 +26,8 @@ model Event {
   plan      ProfitPlan?
   actions   ActionPlan[]
   surveys   SurveyResponse[]
+  ingredientStocks EventIngredientStock[]
+  menuStocks       EventMenuStock[]
 
   @@index([date])
 }
@@ -47,6 +49,23 @@ model Ingredient {
   purchases         IngredientPurchase[]
   adjustments       IngredientStockAdjustment[]
   recipeUses        RecipeIngredient[]
+  eventStocks       EventIngredientStock[]
+}
+
+// イベントごとの材料在庫。材料そのもの(名前・単位・単価)はイベントをまたいで
+// 共通だが、「いま何グラム残っているか」はイベントごとに分ける。
+// 前のイベントで使い切った材料が、次のイベントで在庫ありに見えないようにするため。
+model EventIngredientStock {
+  id           String     @id @default(cuid())
+  eventId      String
+  event        Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  ingredientId String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  stock        Decimal    @default(0) @db.Decimal(14, 3)
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([eventId, ingredientId])
+  @@index([eventId])
 }
 
 model IngredientPurchase {
@@ -111,6 +130,22 @@ model MenuItem {
   recipe         RecipeIngredient[]
   saleItems      SaleItem[]
   preparations   MenuPreparation[]
+  eventStocks    EventMenuStock[]
+}
+
+// イベントごとの「仕込み済みの残り個数」。メニュー(名前・売価・レシピ)は
+// イベントをまたいで共通で、残数だけをイベントごとに分ける。
+model EventMenuStock {
+  id            String   @id @default(cuid())
+  eventId       String
+  event         Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  menuItemId    String
+  menuItem      MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  preparedStock Int      @default(0)
+  updatedAt     DateTime @updatedAt
+
+  @@unique([eventId, menuItemId])
+  @@index([eventId])
 }
 
 // 仕込みの記録(何を何個作ったか)。材料はこのタイミングで消費される。

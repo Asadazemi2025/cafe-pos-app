@@ -3,6 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { requireAuth, requireEditAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireCurrentEvent } from "@/lib/event";
+import {
+  addIngredientStock,
+  getIngredientStockMap,
+  setIngredientStock,
+} from "@/lib/event-stock";
 import { Prisma, type StockAdjustmentReason } from "@prisma/client";
 
 export type IngredientDTO = {
@@ -18,6 +24,8 @@ export type IngredientDTO = {
 // 読み取り系アクションは必ずプレーンな値に変換してから返す。
 export async function getIngredients(): Promise<IngredientDTO[]> {
   requireAuth();
+  // 残量はイベントごと。材料そのもの(名前・単位・単価)は共通で使い回す。
+  const stocks = await getIngredientStockMap(requireCurrentEvent());
   const ingredients = await prisma.ingredient.findMany({
     orderBy: { name: "asc" },
     where: { isTest: false },
@@ -26,7 +34,7 @@ export async function getIngredients(): Promise<IngredientDTO[]> {
     id: i.id,
     name: i.name,
     unit: i.unit,
-    stock: i.stock.toNumber(),
+    stock: stocks.get(i.id) ?? 0,
     costPerUnit: i.costPerUnit.toNumber(),
     lowStockThreshold: i.lowStockThreshold?.toNumber() ?? null,
   }));
@@ -61,6 +69,8 @@ export async function createIngredient(input: {
   if (!name) throw new Error("材料名を入力してください。");
   if (!input.unit.trim()) throw new Error("単位を入力してください。");
 
+  const eventId = requireCurrentEvent();
+
   await prisma.$transaction(async (tx) => {
     const ingredient = await tx.ingredient.create({
       data: {
@@ -73,6 +83,7 @@ export async function createIngredient(input: {
 
     if (input.initialQuantity && input.initialQuantity > 0) {
       await recordPurchase(tx, {
+        eventId,
         ingredientId: ingredient.id,
         quantity: input.initialQuantity,
         unitCost: input.initialUnitCost ?? 0,
@@ -87,18 +98,23 @@ export async function createIngredient(input: {
 // 仕入れ記録の共通処理。材料の在庫を加算し、単価を最新の仕入単価で更新する。
 async function recordPurchase(
   tx: Prisma.TransactionClient,
-  input: { ingredientId: string; quantity: number; unitCost: number; memo?: string | null },
+  input: {
+    eventId: string;
+    ingredientId: string;
+    quantity: number;
+    unitCost: number;
+    memo?: string | null;
+  },
 ) {
   const ingredient = await tx.ingredient.findUniqueOrThrow({ where: { id: input.ingredientId } });
   const quantity = new Prisma.Decimal(input.quantity);
   const unitCost = new Prisma.Decimal(input.unitCost);
 
+  // 仕入れた分は、いま選んでいるイベントの在庫として増やす
+  await addIngredientStock(input.eventId, ingredient.id, input.quantity, tx);
   const updated = await tx.ingredient.update({
     where: { id: ingredient.id },
-    data: {
-      stock: ingredient.stock.add(quantity),
-      costPerUnit: input.unitCost > 0 ? unitCost : ingredient.costPerUnit,
-    },
+    data: { costPerUnit: input.unitCost > 0 ? unitCost : ingredient.costPerUnit },
   });
 
   await tx.ingredientPurchase.create({
@@ -124,7 +140,8 @@ export async function createIngredientPurchase(input: {
   requireEditAuth();
   if (input.quantity <= 0) throw new Error("数量は1以上を入力してください。");
 
-  await prisma.$transaction((tx) => recordPurchase(tx, input));
+  const eventId = requireCurrentEvent();
+  await prisma.$transaction((tx) => recordPurchase(tx, { ...input, eventId }));
   revalidatePath("/ingredients");
 }
 
@@ -140,13 +157,12 @@ export async function adjustIngredientStock(input: {
     const ingredient = await tx.ingredient.findUniqueOrThrow({
       where: { id: input.ingredientId },
     });
+    const eventId = requireCurrentEvent();
+    const current = (await getIngredientStockMap(eventId, tx)).get(ingredient.id) ?? 0;
     const nextStock = new Prisma.Decimal(input.nextStock);
-    const delta = nextStock.sub(ingredient.stock);
+    const delta = nextStock.sub(new Prisma.Decimal(current));
 
-    await tx.ingredient.update({
-      where: { id: ingredient.id },
-      data: { stock: nextStock },
-    });
+    await setIngredientStock(eventId, ingredient.id, input.nextStock, tx);
 
     if (!delta.isZero()) {
       await tx.ingredientStockAdjustment.create({

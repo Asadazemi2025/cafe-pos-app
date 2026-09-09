@@ -2,6 +2,13 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { Prisma, type PaymentMethod } from "@prisma/client";
 import { expandRecipeUsage, computeMenuItemCost, type IngredientUsageLine } from "@/lib/cost";
+import {
+  addMenuStock,
+  decrementIngredients,
+  decrementMenuStock,
+  getMenuStockMap,
+  incrementIngredients,
+} from "@/lib/event-stock";
 
 export type CartLine = { menuItemId: string; quantity: number };
 
@@ -46,6 +53,9 @@ export async function performSale(input: {
           throw new Error("存在しないメニューが含まれています。");
         }
 
+        // 在庫はイベントごとに持つ。別のイベントの残りは使えない。
+        const menuStock = await getMenuStockMap(input.eventId, tx);
+
         // 仕込み済みメニュー(PREPARED)は材料ではなく残り個数を減らす。
         // 材料は仕込み時にすでに消費しているため、ここでは触らない。
         const lineUsages: {
@@ -59,13 +69,14 @@ export async function performSale(input: {
         for (const line of merged) {
           const menuItem = menuItems.find((m) => m.id === line.menuItemId)!;
           if (menuItem.stockMode === "PREPARED") {
-            if (menuItem.preparedStock < line.quantity) {
-              throw new Error(`「${menuItem.name}」の残りが足りません(残り${menuItem.preparedStock}個)。`);
+            const remaining = menuStock.get(menuItem.id) ?? 0;
+            if (remaining < line.quantity) {
+              throw new Error(`「${menuItem.name}」の残りが足りません(残り${remaining}個)。`);
             }
-            await tx.menuItem.update({
-              where: { id: menuItem.id },
-              data: { preparedStock: { decrement: line.quantity } },
-            });
+            const ok = await decrementMenuStock(tx, input.eventId, menuItem.id, line.quantity);
+            if (!ok) {
+              throw new Error(`「${menuItem.name}」の残りが足りません(残り${remaining}個)。`);
+            }
             lineUsages.push({
               menuItemId: line.menuItemId,
               quantity: line.quantity,
@@ -88,20 +99,10 @@ export async function performSale(input: {
         }
 
         if (totalUsage.size > 0) {
-          const rows = [...totalUsage.entries()].map(([ingredientId, qty]) => ({ ingredientId, qty }));
-          const updated = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
-            UPDATE "Ingredient" AS i
-            SET stock = i.stock - v.qty
-            FROM (VALUES ${Prisma.join(
-              rows.map((r) => Prisma.sql`(${r.ingredientId}::text, ${r.qty}::numeric)`),
-            )}) AS v(id, qty)
-            WHERE i.id = v.id AND i.stock >= v.qty
-            RETURNING i.id
-          `);
-          const updatedSet = new Set(updated.map((r) => r.id));
-          const missing = rows.filter((r) => !updatedSet.has(r.ingredientId));
-          if (missing.length > 0) {
-            throw new Error("材料の在庫が足りません。");
+          const rows = [...totalUsage.entries()].map(([id, qty]) => ({ id, qty }));
+          const ok = await decrementIngredients(tx, input.eventId, rows);
+          if (!ok) {
+            throw new Error("このイベントの材料在庫が足りません。");
           }
         }
 
@@ -184,16 +185,15 @@ export async function voidSale(saleId: string): Promise<void> {
       include: { items: true },
     });
     if (sale.voided) throw new Error("この会計はすでに取消済みです。");
+    // 在庫はイベントごとなので、その会計を記録したイベントへ戻す
+    const eventId = sale.eventId;
 
     const restock = new Map<string, number>();
     for (const item of sale.items) {
       // 仕込み在庫から売れた行は、材料ではなくメニューの残り個数を戻す
       if (item.fromPreparedStock) {
-        if (item.menuItemId) {
-          await tx.menuItem.update({
-            where: { id: item.menuItemId },
-            data: { preparedStock: { increment: item.quantity } },
-          });
+        if (item.menuItemId && eventId) {
+          await addMenuStock(eventId, item.menuItemId, item.quantity, tx);
         }
         continue;
       }
@@ -203,16 +203,12 @@ export async function voidSale(saleId: string): Promise<void> {
       }
     }
 
-    if (restock.size > 0) {
-      const rows = [...restock.entries()].map(([ingredientId, qty]) => ({ ingredientId, qty }));
-      await tx.$executeRaw(Prisma.sql`
-        UPDATE "Ingredient" AS i
-        SET stock = i.stock + v.qty
-        FROM (VALUES ${Prisma.join(
-          rows.map((r) => Prisma.sql`(${r.ingredientId}::text, ${r.qty}::numeric)`),
-        )}) AS v(id, qty)
-        WHERE i.id = v.id
-      `);
+    if (restock.size > 0 && eventId) {
+      await incrementIngredients(
+        tx,
+        eventId,
+        [...restock.entries()].map(([id, qty]) => ({ id, qty })),
+      );
     }
 
     await tx.sale.update({ where: { id: saleId }, data: { voided: true } });

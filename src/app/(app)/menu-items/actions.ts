@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { requireAuth, requireEditAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computeMenuItemCosts, expandRecipeUsage } from "@/lib/cost";
+import { requireCurrentEvent } from "@/lib/event";
+import { addMenuStock, decrementIngredients, getMenuStockMap, setMenuStock } from "@/lib/event-stock";
 import { Prisma } from "@prisma/client";
 
 export type MenuStockModeDTO = "MADE_TO_ORDER" | "PREPARED";
@@ -21,6 +23,8 @@ export type MenuItemDTO = {
 
 export async function getMenuItems(): Promise<MenuItemDTO[]> {
   requireAuth();
+  // 仕込み済みの残数はイベントごと
+  const menuStocks = await getMenuStockMap(requireCurrentEvent());
   const items = await prisma.menuItem.findMany({
     orderBy: { name: "asc" },
     where: { isTest: false },
@@ -34,7 +38,7 @@ export async function getMenuItems(): Promise<MenuItemDTO[]> {
     costPrice: costs[i.id].toNumber(),
     showInRegister: i.showInRegister,
     stockMode: i.stockMode,
-    preparedStock: i.preparedStock,
+    preparedStock: menuStocks.get(i.id) ?? 0,
   }));
 }
 
@@ -157,32 +161,26 @@ export async function recordPreparation(menuItemId: string, quantity: number): P
   requireEditAuth();
   if (quantity <= 0) throw new Error("作った個数を入力してください。");
 
+  const eventId = requireCurrentEvent();
+
   await prisma.$transaction(async (tx) => {
     const menuItem = await tx.menuItem.findUniqueOrThrow({ where: { id: menuItemId } });
 
     const usage = await expandRecipeUsage(menuItemId, quantity, tx);
     if (usage.length > 0) {
-      const updated = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
-        UPDATE "Ingredient" AS i
-        SET stock = i.stock - v.qty
-        FROM (VALUES ${Prisma.join(
-          usage.map((u) => Prisma.sql`(${u.ingredientId}::text, ${u.qty}::numeric)`),
-        )}) AS v(id, qty)
-        WHERE i.id = v.id AND i.stock >= v.qty
-        RETURNING i.id
-      `);
-      if (updated.length !== usage.length) {
-        throw new Error("材料の在庫が足りません。");
-      }
+      const ok = await decrementIngredients(
+        tx,
+        eventId,
+        usage.map((u) => ({ id: u.ingredientId, qty: u.qty })),
+      );
+      if (!ok) throw new Error("このイベントの材料在庫が足りません。");
     }
 
+    await addMenuStock(eventId, menuItemId, quantity, tx);
     await tx.menuItem.update({
       where: { id: menuItemId },
-      data: {
-        preparedStock: { increment: quantity },
-        // 仕込みを記録した時点で「作り置き」の運用に切り替える
-        stockMode: "PREPARED",
-      },
+      // 仕込みを記録した時点で「作り置き」の運用に切り替える
+      data: { stockMode: "PREPARED" },
     });
 
     await tx.menuPreparation.create({
@@ -199,10 +197,7 @@ export async function recordPreparation(menuItemId: string, quantity: number): P
 export async function setPreparedStock(menuItemId: string, nextStock: number): Promise<void> {
   requireEditAuth();
   if (nextStock < 0) throw new Error("0以上の個数を入力してください。");
-  await prisma.menuItem.update({
-    where: { id: menuItemId },
-    data: { preparedStock: Math.round(nextStock) },
-  });
+  await setMenuStock(requireCurrentEvent(), menuItemId, Math.round(nextStock));
   revalidatePath("/menu-items");
   revalidatePath("/register");
 }

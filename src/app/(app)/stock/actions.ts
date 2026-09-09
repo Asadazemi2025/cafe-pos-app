@@ -5,6 +5,13 @@ import { requireAuth, requireEditAuth } from "@/lib/auth";
 import { getCurrentDayIndex, requireCurrentEvent } from "@/lib/event";
 import { prisma } from "@/lib/prisma";
 import { expandRecipeUsage } from "@/lib/cost";
+import {
+  addMenuStock,
+  decrementIngredients,
+  getIngredientStockMap,
+  getMenuStockMap,
+  setMenuStock,
+} from "@/lib/event-stock";
 import { Prisma } from "@prisma/client";
 
 export type StockState = "ok" | "low" | "out";
@@ -47,6 +54,12 @@ export async function getStock(): Promise<{ rows: StockRow[]; summary: StockSumm
   const eventId = requireCurrentEvent();
   const dayIndex = getCurrentDayIndex();
 
+  // 在庫はイベントごと。ほかのイベントの残りは出さない。
+  const [ingredientStocks, menuStocks] = await Promise.all([
+    getIngredientStockMap(eventId),
+    getMenuStockMap(eventId),
+  ]);
+
   const [items, ingredients, recipes, soldItems] = await Promise.all([
     prisma.menuItem.findMany({ where: { isTest: false }, orderBy: { name: "asc" } }),
     prisma.ingredient.findMany({ where: { isTest: false } }),
@@ -78,8 +91,8 @@ export async function getStock(): Promise<{ rows: StockRow[]; summary: StockSumm
     let derived = false;
 
     if (item.stockMode === "PREPARED") {
-      // 仕込み済み: 「あと何個売れるか」をそのまま残数にする
-      stock = item.preparedStock;
+      // 仕込み済み: このイベントで「あと何個売れるか」
+      stock = menuStocks.get(item.id) ?? 0;
     } else {
       // 注文後に作る: 材料から「あと何個作れるか」を計算する
       derived = true;
@@ -92,7 +105,7 @@ export async function getStock(): Promise<{ rows: StockRow[]; summary: StockSumm
                 const ing = ingredientById.get(line.ingredientId);
                 const per = line.quantityPerUnit.toNumber();
                 if (!ing || per <= 0) return 0;
-                return Math.floor(ing.stock.toNumber() / per);
+                return Math.floor((ingredientStocks.get(line.ingredientId) ?? 0) / per);
               }),
             );
     }
@@ -113,12 +126,12 @@ export async function getStock(): Promise<{ rows: StockRow[]; summary: StockSumm
   });
 
   const ingredientValue = ingredients.reduce(
-    (sum, i) => sum + i.stock.toNumber() * i.costPerUnit.toNumber(),
+    (sum, i) => sum + (ingredientStocks.get(i.id) ?? 0) * i.costPerUnit.toNumber(),
     0,
   );
   const preparedValue = items
     .filter((i) => i.stockMode === "PREPARED")
-    .reduce((sum, i) => sum + i.preparedStock * (costs.get(i.id) ?? 0), 0);
+    .reduce((sum, i) => sum + (menuStocks.get(i.id) ?? 0) * (costs.get(i.id) ?? 0), 0);
 
   return {
     rows,
@@ -135,28 +148,23 @@ export async function getStock(): Promise<{ rows: StockRow[]; summary: StockSumm
 export async function addStock(menuItemId: string, quantity: number): Promise<void> {
   requireEditAuth();
   if (quantity <= 0) throw new Error("追加する個数を入力してください。");
+  const eventId = requireCurrentEvent();
 
   await prisma.$transaction(async (tx) => {
     const item = await tx.menuItem.findUniqueOrThrow({ where: { id: menuItemId } });
     const usage = await expandRecipeUsage(menuItemId, quantity, tx);
 
     if (usage.length > 0) {
-      const updated = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
-        UPDATE "Ingredient" AS i
-        SET stock = i.stock - v.qty
-        FROM (VALUES ${Prisma.join(
-          usage.map((u) => Prisma.sql`(${u.ingredientId}::text, ${u.qty}::numeric)`),
-        )}) AS v(id, qty)
-        WHERE i.id = v.id AND i.stock >= v.qty
-        RETURNING i.id
-      `);
-      if (updated.length !== usage.length) throw new Error("材料の在庫が足りません。");
+      const ok = await decrementIngredients(
+        tx,
+        eventId,
+        usage.map((u) => ({ id: u.ingredientId, qty: u.qty })),
+      );
+      if (!ok) throw new Error("このイベントの材料在庫が足りません。");
     }
 
-    await tx.menuItem.update({
-      where: { id: menuItemId },
-      data: { preparedStock: { increment: quantity }, stockMode: "PREPARED" },
-    });
+    await addMenuStock(eventId, menuItemId, quantity, tx);
+    await tx.menuItem.update({ where: { id: menuItemId }, data: { stockMode: "PREPARED" } });
     await tx.menuPreparation.create({
       data: { menuItemId, menuItemName: item.name, quantity },
     });
@@ -170,12 +178,10 @@ export async function addStock(menuItemId: string, quantity: number): Promise<vo
 // 「−1」= 廃棄・数え直し。材料は戻さない。
 export async function decrementStock(menuItemId: string): Promise<void> {
   requireEditAuth();
-  const item = await prisma.menuItem.findUniqueOrThrow({ where: { id: menuItemId } });
-  if (item.preparedStock <= 0) throw new Error("これ以上減らせません。");
-  await prisma.menuItem.update({
-    where: { id: menuItemId },
-    data: { preparedStock: { decrement: 1 } },
-  });
+  const eventId = requireCurrentEvent();
+  const current = (await getMenuStockMap(eventId)).get(menuItemId) ?? 0;
+  if (current <= 0) throw new Error("これ以上減らせません。");
+  await setMenuStock(eventId, menuItemId, current - 1);
   revalidatePath("/stock");
   revalidatePath("/register");
 }
@@ -203,19 +209,21 @@ export async function createProduct(input: {
 
   const initial = Math.max(0, Math.round(input.initialStock));
   const par = input.par > 0 ? Math.round(input.par) : initial || 10;
+  const eventId = requireCurrentEvent();
 
-  await prisma.menuItem.create({
+  const created = await prisma.menuItem.create({
     data: {
       name,
       category: input.category.trim() || null,
       salePrice: new Prisma.Decimal(input.salePrice),
       // 初期在庫を入れた商品は「作り置き」として扱う。
-      // 材料は仕込み時に消費済みとみなし、ここでは減らさない。
+      // 材料は仕込み時にすでに消費済みとみなし、ここでは減らさない。
       stockMode: initial > 0 ? "PREPARED" : "MADE_TO_ORDER",
-      preparedStock: initial,
       par,
     },
   });
+  // 初期在庫はいま選んでいるイベントのぶんとして入れる
+  if (initial > 0) await addMenuStock(eventId, created.id, initial);
   revalidatePath("/stock");
   revalidatePath("/register");
 }
@@ -226,6 +234,64 @@ export async function deleteProduct(menuItemId: string): Promise<void> {
     prisma.recipeIngredient.deleteMany({ where: { menuItemId } }),
     prisma.menuItem.delete({ where: { id: menuItemId } }),
   ]);
+  revalidatePath("/stock");
+  revalidatePath("/register");
+}
+
+export type CarryOverCandidate = { id: string; name: string; dateLabel: string };
+
+/** 在庫を引き継げるイベント(在庫の記録があり、いま選んでいるイベント以外) */
+export async function getCarryOverCandidates(): Promise<CarryOverCandidate[]> {
+  requireAuth();
+  const eventId = requireCurrentEvent();
+  const events = await prisma.event.findMany({
+    where: {
+      id: { not: eventId },
+      OR: [{ ingredientStocks: { some: {} } }, { menuStocks: { some: {} } }],
+    },
+    orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+    take: 10,
+    select: { id: true, name: true, date: true },
+  });
+  return events.map((e) => ({
+    id: e.id,
+    name: e.name,
+    dateLabel: e.date.toISOString().slice(0, 10),
+  }));
+}
+
+/**
+ * ほかのイベントの残り在庫を、いまのイベントに引き継ぐ。
+ * 在庫はイベントごとに分かれているので、前回の余りを持ち込むときだけ明示的に実行する。
+ * いまのイベントの在庫はこの操作で置き換わる。
+ */
+export async function carryOverStock(fromEventId: string): Promise<void> {
+  requireEditAuth();
+  const eventId = requireCurrentEvent();
+  if (fromEventId === eventId) throw new Error("同じイベントからは引き継げません。");
+
+  const [ingredientStocks, menuStocks] = await Promise.all([
+    prisma.eventIngredientStock.findMany({ where: { eventId: fromEventId } }),
+    prisma.eventMenuStock.findMany({ where: { eventId: fromEventId } }),
+  ]);
+
+  await prisma.$transaction([
+    ...ingredientStocks.map((row) =>
+      prisma.eventIngredientStock.upsert({
+        where: { eventId_ingredientId: { eventId, ingredientId: row.ingredientId } },
+        create: { eventId, ingredientId: row.ingredientId, stock: row.stock },
+        update: { stock: row.stock },
+      }),
+    ),
+    ...menuStocks.map((row) =>
+      prisma.eventMenuStock.upsert({
+        where: { eventId_menuItemId: { eventId, menuItemId: row.menuItemId } },
+        create: { eventId, menuItemId: row.menuItemId, preparedStock: row.preparedStock },
+        update: { preparedStock: row.preparedStock },
+      }),
+    ),
+  ]);
+
   revalidatePath("/stock");
   revalidatePath("/register");
 }

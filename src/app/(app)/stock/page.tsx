@@ -1,9 +1,19 @@
-import { getStock } from "./actions";
+import { getCarryOverCandidates, getStock } from "./actions";
 import { StockManager } from "@/components/stock/StockManager";
 import { getRole } from "@/lib/auth";
 
 export default async function StockPage() {
-  const { rows, summary } = await getStock();
+  const [{ rows, summary }, carryOver] = await Promise.all([
+    getStock(),
+    getCarryOverCandidates(),
+  ]);
 
-  return <StockManager rows={rows} summary={summary} readOnly={getRole() !== "full"} />;
+  return (
+    <StockManager
+      rows={rows}
+      summary={summary}
+      carryOver={carryOver}
+      readOnly={getRole() !== "full"}
+    />
+  );
 }

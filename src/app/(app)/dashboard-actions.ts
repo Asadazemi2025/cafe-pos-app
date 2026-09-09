@@ -3,6 +3,7 @@
 import { requireAuth } from "@/lib/auth";
 import { requireCurrentEvent } from "@/lib/event";
 import { prisma } from "@/lib/prisma";
+import { getIngredientStockMap } from "@/lib/event-stock";
 
 export type DashboardSummary = {
   salesTotal: number;
@@ -63,20 +64,21 @@ export type LowStockIngredientDTO = {
   lowStockThreshold: number;
 };
 
-// 在庫は全イベント共通なので、ここはイベントで絞らない
+// 在庫はイベントごとなので、いま選んでいるイベントの残量で判定する
 export async function getLowStockIngredients(): Promise<LowStockIngredientDTO[]> {
   requireAuth();
+  const stocks = await getIngredientStockMap(requireCurrentEvent());
   const ingredients = await prisma.ingredient.findMany({
     where: { isTest: false, lowStockThreshold: { not: null } },
     orderBy: { name: "asc" },
   });
   return ingredients
-    .filter((i) => i.lowStockThreshold !== null && i.stock.lte(i.lowStockThreshold))
     .map((i) => ({
       id: i.id,
       name: i.name,
       unit: i.unit,
-      stock: i.stock.toNumber(),
+      stock: stocks.get(i.id) ?? 0,
       lowStockThreshold: i.lowStockThreshold!.toNumber(),
-    }));
+    }))
+    .filter((i) => i.stock <= i.lowStockThreshold);
 }

@@ -6,6 +6,7 @@ import { getCurrentDayIndex, requireCurrentEvent } from "@/lib/event";
 import { prisma } from "@/lib/prisma";
 
 import { performSale, voidSale as voidSaleCore, type CartLine } from "@/lib/register-sale";
+import { getMenuStockMap } from "@/lib/event-stock";
 
 export type PaymentMethodDTO = "CASH" | "CARD" | "PAYPAY" | "EMONEY";
 
@@ -22,6 +23,8 @@ export type RegisterMenuItemDTO = {
 
 export async function getRegisterMenu(): Promise<RegisterMenuItemDTO[]> {
   requireAuth();
+  // 残数はいま選んでいるイベントのぶんだけを見る
+  const menuStocks = await getMenuStockMap(requireCurrentEvent());
   // メニューとレシピを同時に読み、原価はこの場で計算する(往復を減らして表示を速くする)
   const [items, recipes] = await Promise.all([
     prisma.menuItem.findMany({
@@ -49,7 +52,7 @@ export async function getRegisterMenu(): Promise<RegisterMenuItemDTO[]> {
     salePrice: i.salePrice.toNumber(),
     costPrice: costs.get(i.id) ?? 0,
     stockMode: i.stockMode,
-    preparedStock: i.preparedStock,
+    preparedStock: menuStocks.get(i.id) ?? 0,
     par: i.par,
   }));
 }
