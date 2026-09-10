@@ -13,15 +13,26 @@ import { yen } from "@/lib/money";
 
 const UNITS = ["g", "ml", "個", "枚", "本"];
 
-type Row = { key: string; name: string; unit: string; quantity: string; costPerUnit: string };
+type Row = {
+  key: string;
+  name: string;
+  unit: string;
+  /** 買ったときの値段(例: 300円) */
+  purchasePrice: string;
+  /** 買ったときの量(例: 100g) */
+  purchaseQty: string;
+  /** この商品1個に使う量(例: 10g) */
+  quantity: string;
+};
 
 let rowSeq = 0;
 const newRow = (): Row => ({
   key: `row-${rowSeq++}`,
   name: "",
   unit: "g",
+  purchasePrice: "",
+  purchaseQty: "",
   quantity: "",
-  costPerUnit: "",
 });
 
 export function RecipeManager({
@@ -53,8 +64,9 @@ export function RecipeManager({
             key: `line-${l.ingredientId}`,
             name: l.name,
             unit: l.unit,
+            purchasePrice: String(l.purchasePrice),
+            purchaseQty: String(l.purchaseQty),
             quantity: String(l.quantity),
-            costPerUnit: String(l.costPerUnit),
           }))
         : [newRow()],
     );
@@ -73,17 +85,27 @@ export function RecipeManager({
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   }
 
-  // 材料名を選ぶと、登録済みの単位と単価をそのまま引いてくる
+  // 材料名を選ぶと、前に登録した「買った値段・買った量」をそのまま引いてくる
   function fillFromIngredient(key: string, name: string) {
     const found = ingredients.find((i) => i.name === name);
     if (found) {
-      update(key, { name, unit: found.unit, costPerUnit: String(found.costPerUnit) });
+      update(key, {
+        name,
+        unit: found.unit,
+        purchasePrice: String(found.purchasePrice),
+        purchaseQty: String(found.purchaseQty),
+      });
     } else {
       update(key, { name });
     }
   }
 
-  const lineAmount = (r: Row) => (Number(r.quantity) || 0) * (Number(r.costPerUnit) || 0);
+  // 1単位あたりの値段 = 買った値段 ÷ 買った量
+  const unitCostOf = (r: Row) => {
+    const qty = Number(r.purchaseQty) || 0;
+    return qty > 0 ? (Number(r.purchasePrice) || 0) / qty : 0;
+  };
+  const lineAmount = (r: Row) => (Number(r.quantity) || 0) * unitCostOf(r);
   const cost = rows.reduce((sum, r) => sum + lineAmount(r), 0);
   const salePrice = Number(price) || 0;
   const margin = salePrice - cost;
@@ -99,7 +121,8 @@ export function RecipeManager({
           name: r.name,
           unit: r.unit,
           quantity: Number(r.quantity) || 0,
-          costPerUnit: Number(r.costPerUnit) || 0,
+          purchasePrice: Number(r.purchasePrice) || 0,
+          purchaseQty: Number(r.purchaseQty) || 0,
         })),
       );
       if (salePrice !== product.salePrice) {
@@ -185,19 +208,20 @@ export function RecipeManager({
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto px-4 py-3 md:px-[18px]">
-          <div className="grid min-w-[600px] grid-cols-[1.6fr_.9fr_.8fr_1fr_1fr_40px] items-center gap-2 pb-2 text-[11px] font-bold text-ink-muted">
+          <div className="grid min-w-[720px] grid-cols-[1.4fr_.85fr_.85fr_.6fr_.85fr_.9fr_36px] items-end gap-2 pb-2 text-[11px] font-bold text-ink-muted">
             <div>材料</div>
-            <div className="text-right">使う量</div>
+            <div className="text-right">買った値段</div>
+            <div className="text-right">買った量</div>
             <div>単位</div>
-            <div className="text-right">単価(1単位)</div>
-            <div className="text-right">金額</div>
+            <div className="text-right">1個に使う量</div>
+            <div className="text-right">この商品の原価</div>
             <div />
           </div>
 
           {rows.map((r) => (
             <div
               key={r.key}
-              className="grid min-w-[600px] grid-cols-[1.6fr_.9fr_.8fr_1fr_1fr_40px] items-center gap-2 border-t border-border-row py-2"
+              className="grid min-w-[720px] grid-cols-[1.4fr_.85fr_.85fr_.6fr_.85fr_.9fr_36px] items-center gap-2 border-t border-border-row py-2"
             >
               <input
                 value={r.name}
@@ -206,15 +230,29 @@ export function RecipeManager({
                 placeholder="例: コーヒー豆"
                 className="w-full rounded-[9px] border border-border px-2.5 py-2 text-[13px] outline-none placeholder:text-ink-placeholder focus:border-accent"
               />
-              <input
-                value={r.quantity}
-                onChange={(e) => update(r.key, { quantity: e.target.value })}
-                type="number"
-                min={0}
-                step="0.1"
-                placeholder="0"
-                className="num w-full rounded-[9px] border border-border px-2.5 py-2 text-right text-[13px] outline-none focus:border-accent"
-              />
+              <div className="flex items-center gap-1">
+                <input
+                  value={r.purchasePrice}
+                  onChange={(e) => update(r.key, { purchasePrice: e.target.value })}
+                  type="number"
+                  min={0}
+                  placeholder="300"
+                  className="num w-full rounded-[9px] border border-border px-2 py-2 text-right text-[13px] outline-none focus:border-accent"
+                />
+                <span className="text-[11px] text-ink-muted">円</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-[11px] text-ink-muted">で</span>
+                <input
+                  value={r.purchaseQty}
+                  onChange={(e) => update(r.key, { purchaseQty: e.target.value })}
+                  type="number"
+                  min={0}
+                  step="0.1"
+                  placeholder="100"
+                  className="num w-full rounded-[9px] border border-border px-2 py-2 text-right text-[13px] outline-none focus:border-accent"
+                />
+              </div>
               <select
                 value={r.unit}
                 onChange={(e) => update(r.key, { unit: e.target.value })}
@@ -226,16 +264,26 @@ export function RecipeManager({
                   </option>
                 ))}
               </select>
-              <input
-                value={r.costPerUnit}
-                onChange={(e) => update(r.key, { costPerUnit: e.target.value })}
-                type="number"
-                min={0}
-                step="0.01"
-                placeholder="0"
-                className="num w-full rounded-[9px] border border-border px-2.5 py-2 text-right text-[13px] outline-none focus:border-accent"
-              />
-              <div className="num text-right text-sm font-bold">{yen(lineAmount(r))}</div>
+              <div className="flex items-center gap-1">
+                <input
+                  value={r.quantity}
+                  onChange={(e) => update(r.key, { quantity: e.target.value })}
+                  type="number"
+                  min={0}
+                  step="0.1"
+                  placeholder="10"
+                  className="num w-full rounded-[9px] border border-border px-2 py-2 text-right text-[13px] outline-none focus:border-accent"
+                />
+                <span className="text-[11px] text-ink-muted">{r.unit}</span>
+              </div>
+              <div className="text-right">
+                <div className="num text-sm font-bold">{yen(lineAmount(r))}</div>
+                {Number(r.purchaseQty) > 0 && (
+                  <div className="num text-[10px] text-ink-muted">
+                    1{r.unit} {yen(unitCostOf(r))}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => setRows((rs) => rs.filter((x) => x.key !== r.key))}
                 className="press press-chip rounded-[8px] py-1 text-xs text-ink-placeholder hover:text-danger"
@@ -259,9 +307,10 @@ export function RecipeManager({
           </button>
 
           <p className="mt-3 text-[11px] leading-relaxed text-ink-muted">
-            単価は「1gあたり」「1個あたり」の値段です。1kg 3,500円で買った豆なら 3.5、
-            100枚 800円のカップなら 8 と入れます。
-            ここで単価を直すと、同じ材料を使っている他の商品の原価にも反映されます。
+            買ったときの値段と量をそのまま入れてください。
+            「コーヒー豆を300円で100g買った」なら 300円 で 100 g、1杯に10g使うなら「1個に使う量」に 10。
+            1gあたり3円なので原価は30円、と自動で計算します。
+            買った値段や量を直すと、同じ材料を使っている他の商品の原価にも反映されます。
             登録した材料は在庫としても管理され、売れたぶんだけ自動で減ります。
           </p>
         </div>

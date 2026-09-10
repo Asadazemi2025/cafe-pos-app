@@ -40,8 +40,13 @@ model Ingredient {
   unit              String                      @default("g")
   // g/ml単位の端数を扱うためInt不可
   stock             Decimal                     @default(0) @db.Decimal(14, 3)
-  // 直近の仕入単価(移動平均ではなく、シンプルに最新仕入れで上書きする)
+  // 直近の仕入単価(移動平均ではなく、シンプルに最新仕入れで上書きする)。
+  // purchasePrice / purchaseQty から計算した値が入る。
   costPerUnit       Decimal                     @default(0) @db.Decimal(14, 4)
+  // 「300円で100g買った」の300と100。単価を直接入れなくても済むように、
+  // 買ったときの値段と量をそのまま持っておく。
+  purchasePrice     Decimal?                    @db.Decimal(14, 2)
+  purchaseQty       Decimal?                    @db.Decimal(14, 3)
   lowStockThreshold Decimal?                    @db.Decimal(14, 3)
   isTest            Boolean                     @default(false)
   createdAt         DateTime                    @default(now())

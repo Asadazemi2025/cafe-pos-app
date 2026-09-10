@@ -13,7 +13,11 @@ export type RecipeLineDTO = {
   unit: string;
   /** この商品1個に使う量 */
   quantity: number;
-  /** 1単位あたりの値段 */
+  /** 買ったときの値段(例: 300円) */
+  purchasePrice: number;
+  /** 買ったときの量(例: 100g) */
+  purchaseQty: number;
+  /** 1単位あたりの値段(買った値段 ÷ 買った量) */
   costPerUnit: number;
   /** quantity × costPerUnit */
   amount: number;
@@ -34,6 +38,8 @@ export type IngredientOptionDTO = {
   id: string;
   name: string;
   unit: string;
+  purchasePrice: number;
+  purchaseQty: number;
   costPerUnit: number;
   stock: number;
 };
@@ -57,11 +63,16 @@ export async function getRecipes(): Promise<{
       .map((r) => {
         const quantity = r.quantityPerUnit.toNumber();
         const costPerUnit = r.ingredient.costPerUnit.toNumber();
+        // 買ったときの値段と量。古いデータには入っていないので、単価から補う。
+        const purchaseQty = r.ingredient.purchaseQty?.toNumber() || 1;
+        const purchasePrice = r.ingredient.purchasePrice?.toNumber() ?? costPerUnit * purchaseQty;
         return {
           ingredientId: r.ingredientId,
           name: r.ingredient.name,
           unit: r.ingredient.unit,
           quantity,
+          purchasePrice,
+          purchaseQty,
           costPerUnit,
           amount: quantity * costPerUnit,
         };
@@ -84,21 +95,30 @@ export async function getRecipes(): Promise<{
 
   return {
     products,
-    ingredients: ingredients.map((i) => ({
-      id: i.id,
-      name: i.name,
-      unit: i.unit,
-      costPerUnit: i.costPerUnit.toNumber(),
-      stock: stocks.get(i.id) ?? 0,
-    })),
+    ingredients: ingredients.map((i) => {
+      const costPerUnit = i.costPerUnit.toNumber();
+      const purchaseQty = i.purchaseQty?.toNumber() || 1;
+      return {
+        id: i.id,
+        name: i.name,
+        unit: i.unit,
+        purchasePrice: i.purchasePrice?.toNumber() ?? costPerUnit * purchaseQty,
+        purchaseQty,
+        costPerUnit,
+        stock: stocks.get(i.id) ?? 0,
+      };
+    }),
   };
 }
 
 export type RecipeInputLine = {
   name: string;
   unit: string;
+  /** この商品1個に使う量 */
   quantity: number;
-  costPerUnit: number;
+  /** 買ったときの値段と量。1単位あたりの単価はこの2つから計算する */
+  purchasePrice: number;
+  purchaseQty: number;
 };
 
 // レシピを丸ごと保存する。材料は名前で照合し、無ければその場で作る。
@@ -112,7 +132,8 @@ export async function saveRecipe(menuItemId: string, lines: RecipeInputLine[]): 
       name: l.name.trim(),
       unit: l.unit.trim() || "g",
       quantity: Number(l.quantity) || 0,
-      costPerUnit: Number(l.costPerUnit) || 0,
+      purchasePrice: Number(l.purchasePrice) || 0,
+      purchaseQty: Number(l.purchaseQty) || 0,
     }))
     .filter((l) => l.name && l.quantity > 0);
 
@@ -123,7 +144,8 @@ export async function saveRecipe(menuItemId: string, lines: RecipeInputLine[]): 
     const prev = merged.get(key);
     if (prev) {
       prev.quantity += line.quantity;
-      prev.costPerUnit = line.costPerUnit;
+      prev.purchasePrice = line.purchasePrice;
+      prev.purchaseQty = line.purchaseQty;
     } else {
       merged.set(key, { ...line });
     }
@@ -133,26 +155,25 @@ export async function saveRecipe(menuItemId: string, lines: RecipeInputLine[]): 
     const resolved: { ingredientId: string; quantity: number }[] = [];
 
     for (const line of merged.values()) {
+      // 「300円で100g買った」から1gあたりの値段を出す
+      const costPerUnit = line.purchaseQty > 0 ? line.purchasePrice / line.purchaseQty : 0;
+      const priceData = {
+        unit: line.unit,
+        costPerUnit: new Prisma.Decimal(costPerUnit),
+        purchasePrice: new Prisma.Decimal(line.purchasePrice),
+        purchaseQty: new Prisma.Decimal(line.purchaseQty || 1),
+      };
+
       const existing = await tx.ingredient.findFirst({
         where: { name: line.name, isTest: false },
       });
 
       if (existing) {
-        await tx.ingredient.update({
-          where: { id: existing.id },
-          data: {
-            unit: line.unit,
-            costPerUnit: new Prisma.Decimal(line.costPerUnit),
-          },
-        });
+        await tx.ingredient.update({ where: { id: existing.id }, data: priceData });
         resolved.push({ ingredientId: existing.id, quantity: line.quantity });
       } else {
         const created = await tx.ingredient.create({
-          data: {
-            name: line.name,
-            unit: line.unit,
-            costPerUnit: new Prisma.Decimal(line.costPerUnit),
-          },
+          data: { name: line.name, ...priceData },
         });
         resolved.push({ ingredientId: created.id, quantity: line.quantity });
       }
