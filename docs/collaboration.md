@@ -46,50 +46,113 @@
 
 ### B-1. 道具をそろえる
 
-| いるもの | どこから |
-|---|---|
-| GitHubアカウント | https://github.com |
-| Git | https://git-scm.com （Windowsは「Git for Windows」） |
-| Node.js | https://nodejs.org の **LTS** 版 |
-| Claude Code | https://claude.ai/code の案内どおり |
-| エディタ(任意) | VS Code など |
+上から順に入れる。どれも無料。
 
-入ったか確認する。ターミナル（Windowsは「Git Bash」または「PowerShell」）で:
+| 順 | 入れるもの | どこから | 確認のしかた |
+|---|---|---|---|
+| 1 | GitHubアカウント | https://github.com | ログインできればOK |
+| 2 | Node.js | https://nodejs.org の **LTS** と書いてある方 | `node -v` |
+| 3 | Git | Windows: https://gitforwindows.org ／ Mac: 最初から入っている | `git --version` |
+| 4 | Claude Code | https://claude.ai/code | `claude` |
+| 5 | VS Code(任意) | https://code.visualstudio.com | — |
+
+インストールは全部「次へ」で進めてよい。**入れ終わったらパソコンを再起動する**（しないとターミナルが新しいコマンドを見つけられないことがある）。
+
+### B-2. ターミナルを開く
+
+- **Windows**: スタートメニューで「Git Bash」と検索して開く
+- **Mac**: 「ターミナル」を開く
+
+黒い（または白い）文字だけの画面が出る。ここに文字を打って Enter で実行する。以下、`$` は打たなくてよい記号。
+
+まず道具が入ったか確認する。
 
 ```bash
 node -v
 git --version
 ```
 
-どちらもバージョンが表示されればOK。
+`v22.14.0` のようにバージョンが出ればOK。「そのようなコマンドはありません」と出たら、そのソフトが入っていないか再起動していない。
 
-### B-2. プロジェクトを手元に持ってくる
+### B-3. 置き場所を決める
 
-置きたい場所へ移動してから:
+デスクトップに置くのが分かりやすい。
+
+```bash
+cd ~/Desktop
+```
+
+`~` は自分のユーザーフォルダのこと。OneDriveを使っていてデスクトップが見つからない場合は `cd ~/OneDrive/Desktop` を試す。
+
+### B-4. プロジェクトを持ってくる
 
 ```bash
 git clone https://github.com/Asadazemi2025/cafe-pos-app.git
+```
+
+GitHubのユーザー名とパスワード（またはトークン）を聞かれたら入力する。ブラウザが開いて認証を求められることもある。
+
+終わるとデスクトップに `cafe-pos-app` フォルダができる。その中に入る。
+
+```bash
 cd cafe-pos-app
+```
+
+### B-5. 部品を入れる
+
+```bash
 npm install
 ```
 
-`npm install` は数分かかる。
+3〜5分かかる。`node_modules` という大きなフォルダができるが、これは自動で作られるものなので触らなくてよい。
 
-### B-3. `.env` を置く
+### B-6. `.env` を置く
 
-もらった `.env` の中身を、`cafe-pos-app` フォルダの直下に `.env` という名前で保存する。
+`.env` は、アプリが起動時に読む設定ファイル。データベースの住所やパスワードが書いてある。**パスワードが入っているのでGitHubには置いていない**ため、これだけは自分で用意する。
 
-**このファイルは絶対にGitHubに上げない。** `.gitignore` に入っているので普通は上がらないが、`git status` に `.env` が出てきたら止めて相談すること。
+置き場所は `cafe-pos-app` フォルダを開いてすぐの場所（`package.json` と同じ並び）。
 
-### B-4. 動かしてみる
+```
+cafe-pos-app/
+├── .env          ← ここ
+├── package.json
+├── prisma/
+└── src/
+```
+
+作り方（Windows・メモ帳の場合）:
+
+1. メモ帳を開く
+2. もらった `.env` の中身をそのまま貼り付ける
+3. ファイル → 名前を付けて保存
+4. 保存先を `cafe-pos-app` フォルダにする
+5. **ファイルの種類を「すべてのファイル」に変える**
+6. ファイル名に `".env"` （ダブルクォートで囲む）と入力して保存
+
+5と6を省くと `.env.txt` になってしまい、アプリが読んでくれない。
+
+### B-7. 動かしてみる
 
 ```bash
 npm run dev
 ```
 
-`http://localhost:3000` を開いて、合言葉でログインできれば準備完了。
+`ready - started server on http://localhost:3000` のような表示が出たら、ブラウザで http://localhost:3000 を開く。合言葉のログイン画面が出れば成功。
 
-> 手元から本番のデータベースにつながらない場合がある（大学や自宅の回線がブロックしていることがある）。その場合は画面が出ずエラーになるので、コードの修正だけして、動作確認は公開サイトで行う。
+止めるときはターミナルで `Ctrl + C`。
+
+> 手元から本番のデータベースにつながらないことがある（大学や自宅の回線がPostgreSQLの通信をふさいでいる場合）。その場合はログイン後にエラーになるが、コードの修正はできる。動作確認は公開サイト https://cafe-pos-app-three.vercel.app/ で行う。
+
+### B-8. Claude Codeを起動する
+
+**別のターミナル**をもう1つ開いて（`npm run dev` は動かしたままにする）:
+
+```bash
+cd ~/Desktop/cafe-pos-app
+claude
+```
+
+初回はブラウザが開いてログインを求められる。ここまでで準備は完了。
 
 ---
 
