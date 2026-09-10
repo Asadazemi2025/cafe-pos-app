@@ -109,7 +109,10 @@ export async function getStock(): Promise<{ rows: StockRow[]; summary: StockSumm
                 const ing = ingredientById.get(line.ingredientId);
                 const per = line.quantityPerUnit.toNumber();
                 if (!ing || per <= 0) return 0;
-                return Math.floor((ingredientStocks.get(line.ingredientId) ?? 0) / per);
+                // 歩留まりのぶん、在庫からは多めに減る。
+                // 90%の材料を10g使う商品なら、在庫100gで作れるのは11杯ではなく9杯。
+                const usable = (ingredientStocks.get(line.ingredientId) ?? 0) * ing.yieldRate.toNumber();
+                return Math.floor(usable / per);
               }),
             );
     }
@@ -129,8 +132,11 @@ export async function getStock(): Promise<{ rows: StockRow[]; summary: StockSumm
     };
   });
 
+  // 在庫金額は「買った値段」で数える。costPerUnitは歩留まりを引いたあとの
+  // 使える1単位あたりの値段なので、そのまま残量に掛けると多く出てしまう。
   const ingredientValue = ingredients.reduce(
-    (sum, i) => sum + (ingredientStocks.get(i.id) ?? 0) * i.costPerUnit.toNumber(),
+    (sum, i) =>
+      sum + (ingredientStocks.get(i.id) ?? 0) * i.costPerUnit.toNumber() * i.yieldRate.toNumber(),
     0,
   );
   const preparedValue = items
