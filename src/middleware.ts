@@ -20,6 +20,12 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // インストール用のファイル。ログイン前のブラウザも読めないと、
+  // 「アプリとして追加」ができなくなる
+  if (pathname === "/manifest.webmanifest" || pathname === "/sw.js") {
+    return NextResponse.next();
+  }
+
   if (pathname === "/login") {
     if (authed) {
       return NextResponse.redirect(new URL("/select-event", req.url));
