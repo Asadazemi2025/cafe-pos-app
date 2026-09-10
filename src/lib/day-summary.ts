@@ -47,7 +47,13 @@ export type DaySummary = {
   byHour: { hour: string; sales: number }[];
 };
 
+/** 何も売れていないときに出す既定の時間帯 */
 export const HOURS = ["10", "11", "12", "13", "14", "15", "16"];
+
+/** 会計のJST時刻の「時」を2桁で返す */
+function jstHour(at: Date): string {
+  return String(new Date(at.getTime() + 9 * 3600 * 1000).getUTCHours()).padStart(2, "0");
+}
 
 type SaleRow = {
   dayIndex: number;
@@ -61,6 +67,8 @@ type SaleRow = {
 type EventData = {
   id: string;
   days: number;
+  /** 表示する時間帯。既定の10〜16時に、実際に会計のあった時間を足したもの */
+  hours: string[];
   sales: SaleRow[];
   expenseWholeTotal: number;
   expensePerDayTotal: number;
@@ -91,9 +99,15 @@ const loadEventData = cache(async (eventId: string): Promise<EventData> => {
     }),
   ]);
 
+  // 早朝や夜に会計があっても表から消えないよう、実績のある時間帯を足しておく。
+  // (10〜16時に固定していると、その外の売上が時間帯別グラフに出ないまま
+  //  日合計だけが増えて、数字が合わないように見えてしまう)
+  const hours = [...new Set([...HOURS, ...sales.map((s) => jstHour(s.occurredAt))])].sort();
+
   return {
     id: event.id,
     days: event.days,
+    hours,
     sales: sales.map((s) => ({
       dayIndex: s.dayIndex,
       occurredAt: s.occurredAt,
@@ -136,9 +150,7 @@ function summarize(data: EventData, dayIndex: number): DaySummary {
     costTotal += sale.totalCost;
     unitCount += sale.itemCount;
 
-    const hour = String(
-      new Date(sale.occurredAt.getTime() + 9 * 3600 * 1000).getUTCHours(),
-    ).padStart(2, "0");
+    const hour = jstHour(sale.occurredAt);
     let saleAmount = 0;
 
     for (const item of sale.items) {
@@ -196,7 +208,7 @@ function summarize(data: EventData, dayIndex: number): DaySummary {
     unitsToBep,
     topProduct,
     perProduct,
-    byHour: HOURS.map((hour) => ({ hour, sales: hourMap.get(hour) ?? 0 })),
+    byHour: data.hours.map((hour) => ({ hour, sales: hourMap.get(hour) ?? 0 })),
   };
 }
 

@@ -33,7 +33,7 @@ export async function getAnalytics(): Promise<AnalyticsData | null> {
   return {
     eventName: event.name,
     dayIndex: event.dayIndex,
-    hours: HOURS,
+    hours: summaries[0]?.byHour.map((h) => h.hour) ?? HOURS,
     summary: summaries[event.dayIndex] ?? summaries[0],
     heatmap: event.dayList.map((day, i) => ({
       dayIndex: day.index,

@@ -41,6 +41,9 @@ export function AnalyticsBoard({ data }: { data: AnalyticsData }) {
   const maxHour = Math.max(1, ...summary.byHour.map((h) => h.sales));
 
   const customers = summary.saleCount;
+  // 時間帯の数は営業時間によって変わるので、列はその都度組み立てる
+  const heatGrid = `112px repeat(${hours.length}, minmax(38px, 1fr)) 86px`;
+  const heatMinWidth = 112 + hours.length * 48 + 86;
   const perCustomer = customers > 0 ? summary.sales / customers : 0;
 
   async function handleSelectDay(index: number) {
@@ -158,7 +161,10 @@ export function AnalyticsBoard({ data }: { data: AnalyticsData }) {
           </div>
         </div>
 
-        <div className="mt-3.5 grid min-w-[720px] grid-cols-[112px_repeat(7,1fr)_86px] items-center gap-1.5 text-[10px] text-ink-muted">
+        <div
+          className="mt-3.5 grid items-center gap-1.5 text-[10px] text-ink-muted"
+          style={{ gridTemplateColumns: heatGrid, minWidth: heatMinWidth }}
+        >
           <div />
           {hours.map((h) => (
             <div key={h} className="num text-center">
@@ -168,7 +174,7 @@ export function AnalyticsBoard({ data }: { data: AnalyticsData }) {
           <div className="num text-right">日合計</div>
         </div>
 
-        <div className="mt-1 min-w-[720px] space-y-1.5">
+        <div className="mt-1 space-y-1.5" style={{ minWidth: heatMinWidth }}>
           {heatmap.map((row) => {
             const selected = row.dayIndex === data.dayIndex;
             return (
@@ -176,9 +182,10 @@ export function AnalyticsBoard({ data }: { data: AnalyticsData }) {
                 key={row.dayIndex}
                 onClick={() => handleSelectDay(row.dayIndex)}
                 disabled={pending}
-                className={`press press-row grid w-full min-w-[720px] grid-cols-[112px_repeat(7,1fr)_86px] items-center gap-1.5 rounded-xl border px-1.5 py-1 text-left ${
+                className={`press press-row grid w-full items-center gap-1.5 rounded-xl border px-1.5 py-1 text-left ${
                   selected ? "border-[1.5px] border-accent bg-accent-weak" : "border-transparent"
                 }`}
+                style={{ gridTemplateColumns: heatGrid, minWidth: heatMinWidth }}
               >
                 <div className="pl-1.5 text-[11px] font-bold">
                   {row.label}
