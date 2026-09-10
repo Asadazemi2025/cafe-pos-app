@@ -21,6 +21,8 @@ type Row = {
   purchasePrice: string;
   /** 買ったときの量(例: 100g) */
   purchaseQty: string;
+  /** 歩留まり(%)。買った量のうち実際に使える割合 */
+  yieldPercent: string;
   /** この商品1個に使う量(例: 10g) */
   quantity: string;
 };
@@ -32,6 +34,7 @@ const newRow = (): Row => ({
   unit: "g",
   purchasePrice: "",
   purchaseQty: "",
+  yieldPercent: "100",
   quantity: "",
 });
 
@@ -66,6 +69,7 @@ export function RecipeManager({
             unit: l.unit,
             purchasePrice: String(l.purchasePrice),
             purchaseQty: String(l.purchaseQty),
+            yieldPercent: String(l.yieldPercent),
             quantity: String(l.quantity),
           }))
         : [newRow()],
@@ -94,16 +98,18 @@ export function RecipeManager({
         unit: found.unit,
         purchasePrice: String(found.purchasePrice),
         purchaseQty: String(found.purchaseQty),
+        yieldPercent: String(found.yieldPercent),
       });
     } else {
       update(key, { name });
     }
   }
 
-  // 1単位あたりの値段 = 買った値段 ÷ 買った量
+  // 1単位あたりの値段 = 買った値段 ÷ 実際に使える量(買った量 × 歩留まり)
   const unitCostOf = (r: Row) => {
-    const qty = Number(r.purchaseQty) || 0;
-    return qty > 0 ? (Number(r.purchasePrice) || 0) / qty : 0;
+    const rate = Math.min(100, Math.max(1, Number(r.yieldPercent) || 100)) / 100;
+    const usable = (Number(r.purchaseQty) || 0) * rate;
+    return usable > 0 ? (Number(r.purchasePrice) || 0) / usable : 0;
   };
   const lineAmount = (r: Row) => (Number(r.quantity) || 0) * unitCostOf(r);
   const cost = rows.reduce((sum, r) => sum + lineAmount(r), 0);
@@ -123,6 +129,7 @@ export function RecipeManager({
           quantity: Number(r.quantity) || 0,
           purchasePrice: Number(r.purchasePrice) || 0,
           purchaseQty: Number(r.purchaseQty) || 0,
+          yieldPercent: Number(r.yieldPercent) || 100,
         })),
       );
       if (salePrice !== product.salePrice) {
@@ -208,11 +215,12 @@ export function RecipeManager({
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto px-4 py-3 md:px-[18px]">
-          <div className="grid min-w-[720px] grid-cols-[1.4fr_.85fr_.85fr_.6fr_.85fr_.9fr_36px] items-end gap-2 pb-2 text-[11px] font-bold text-ink-muted">
+          <div className="grid min-w-[820px] grid-cols-[1.3fr_.8fr_.8fr_.55fr_.7fr_.8fr_.9fr_36px] items-end gap-2 pb-2 text-[11px] font-bold text-ink-muted">
             <div>材料</div>
             <div className="text-right">買った値段</div>
             <div className="text-right">買った量</div>
             <div>単位</div>
+            <div className="text-right">歩留まり</div>
             <div className="text-right">1個に使う量</div>
             <div className="text-right">この商品の原価</div>
             <div />
@@ -221,7 +229,7 @@ export function RecipeManager({
           {rows.map((r) => (
             <div
               key={r.key}
-              className="grid min-w-[720px] grid-cols-[1.4fr_.85fr_.85fr_.6fr_.85fr_.9fr_36px] items-center gap-2 border-t border-border-row py-2"
+              className="grid min-w-[820px] grid-cols-[1.3fr_.8fr_.8fr_.55fr_.7fr_.8fr_.9fr_36px] items-center gap-2 border-t border-border-row py-2"
             >
               <input
                 value={r.name}
@@ -264,6 +272,18 @@ export function RecipeManager({
                   </option>
                 ))}
               </select>
+              <div className="flex items-center gap-1">
+                <input
+                  value={r.yieldPercent}
+                  onChange={(e) => update(r.key, { yieldPercent: e.target.value })}
+                  type="number"
+                  min={1}
+                  max={100}
+                  placeholder="100"
+                  className="num w-full rounded-[9px] border border-border px-2 py-2 text-right text-[13px] outline-none focus:border-accent"
+                />
+                <span className="text-[11px] text-ink-muted">%</span>
+              </div>
               <div className="flex items-center gap-1">
                 <input
                   value={r.quantity}
@@ -310,6 +330,9 @@ export function RecipeManager({
             買ったときの値段と量をそのまま入れてください。
             「コーヒー豆を300円で100g買った」なら 300円 で 100 g、1杯に10g使うなら「1個に使う量」に 10。
             1gあたり3円なので原価は30円、と自動で計算します。
+            歩留まりは、買った量のうち実際に商品に使える割合です(皮や芯を捨てる野菜、
+            こぼれる粉など)。90%と入れると、使えるのは90gなので1gあたり3.33円になり、
+            在庫も1杯につき11.1g減るものとして計算します。ロスがなければ100%のままで大丈夫です。
             買った値段や量を直すと、同じ材料を使っている他の商品の原価にも反映されます。
             登録した材料は在庫としても管理され、売れたぶんだけ自動で減ります。
           </p>

@@ -17,7 +17,9 @@ export type RecipeLineDTO = {
   purchasePrice: number;
   /** 買ったときの量(例: 100g) */
   purchaseQty: number;
-  /** 1単位あたりの値段(買った値段 ÷ 買った量) */
+  /** 歩留まり(%)。買った量のうち実際に使える割合 */
+  yieldPercent: number;
+  /** 1単位あたりの値段(買った値段 ÷ 実際に使える量) */
   costPerUnit: number;
   /** quantity × costPerUnit */
   amount: number;
@@ -40,6 +42,7 @@ export type IngredientOptionDTO = {
   unit: string;
   purchasePrice: number;
   purchaseQty: number;
+  yieldPercent: number;
   costPerUnit: number;
   stock: number;
 };
@@ -65,7 +68,9 @@ export async function getRecipes(): Promise<{
         const costPerUnit = r.ingredient.costPerUnit.toNumber();
         // 買ったときの値段と量。古いデータには入っていないので、単価から補う。
         const purchaseQty = r.ingredient.purchaseQty?.toNumber() || 1;
-        const purchasePrice = r.ingredient.purchasePrice?.toNumber() ?? costPerUnit * purchaseQty;
+        const yieldRate = r.ingredient.yieldRate.toNumber() || 1;
+        const purchasePrice =
+          r.ingredient.purchasePrice?.toNumber() ?? costPerUnit * purchaseQty * yieldRate;
         return {
           ingredientId: r.ingredientId,
           name: r.ingredient.name,
@@ -73,6 +78,7 @@ export async function getRecipes(): Promise<{
           quantity,
           purchasePrice,
           purchaseQty,
+          yieldPercent: Math.round(yieldRate * 100),
           costPerUnit,
           amount: quantity * costPerUnit,
         };
@@ -98,12 +104,14 @@ export async function getRecipes(): Promise<{
     ingredients: ingredients.map((i) => {
       const costPerUnit = i.costPerUnit.toNumber();
       const purchaseQty = i.purchaseQty?.toNumber() || 1;
+      const yieldRate = i.yieldRate.toNumber() || 1;
       return {
         id: i.id,
         name: i.name,
         unit: i.unit,
-        purchasePrice: i.purchasePrice?.toNumber() ?? costPerUnit * purchaseQty,
+        purchasePrice: i.purchasePrice?.toNumber() ?? costPerUnit * purchaseQty * yieldRate,
         purchaseQty,
+        yieldPercent: Math.round(yieldRate * 100),
         costPerUnit,
         stock: stocks.get(i.id) ?? 0,
       };
@@ -116,9 +124,11 @@ export type RecipeInputLine = {
   unit: string;
   /** この商品1個に使う量 */
   quantity: number;
-  /** 買ったときの値段と量。1単位あたりの単価はこの2つから計算する */
+  /** 買ったときの値段と量。1単位あたりの単価はこの2つと歩留まりから計算する */
   purchasePrice: number;
   purchaseQty: number;
+  /** 歩留まり(%) */
+  yieldPercent: number;
 };
 
 // レシピを丸ごと保存する。材料は名前で照合し、無ければその場で作る。
@@ -134,6 +144,8 @@ export async function saveRecipe(menuItemId: string, lines: RecipeInputLine[]): 
       quantity: Number(l.quantity) || 0,
       purchasePrice: Number(l.purchasePrice) || 0,
       purchaseQty: Number(l.purchaseQty) || 0,
+      // 未入力や範囲外は100%(ロスなし)として扱う
+      yieldPercent: Math.min(100, Math.max(1, Number(l.yieldPercent) || 100)),
     }))
     .filter((l) => l.name && l.quantity > 0);
 
@@ -146,6 +158,7 @@ export async function saveRecipe(menuItemId: string, lines: RecipeInputLine[]): 
       prev.quantity += line.quantity;
       prev.purchasePrice = line.purchasePrice;
       prev.purchaseQty = line.purchaseQty;
+      prev.yieldPercent = line.yieldPercent;
     } else {
       merged.set(key, { ...line });
     }
@@ -155,13 +168,17 @@ export async function saveRecipe(menuItemId: string, lines: RecipeInputLine[]): 
     const resolved: { ingredientId: string; quantity: number }[] = [];
 
     for (const line of merged.values()) {
-      // 「300円で100g買った」から1gあたりの値段を出す
-      const costPerUnit = line.purchaseQty > 0 ? line.purchasePrice / line.purchaseQty : 0;
+      // 「300円で100g買って、そのうち90%が使える」なら
+      // 実際に使える量は90g。1gあたりの値段は 300 ÷ 90 = 3.33円になる。
+      const yieldRate = line.yieldPercent / 100;
+      const usableQty = line.purchaseQty * yieldRate;
+      const costPerUnit = usableQty > 0 ? line.purchasePrice / usableQty : 0;
       const priceData = {
         unit: line.unit,
         costPerUnit: new Prisma.Decimal(costPerUnit),
         purchasePrice: new Prisma.Decimal(line.purchasePrice),
         purchaseQty: new Prisma.Decimal(line.purchaseQty || 1),
+        yieldRate: new Prisma.Decimal(yieldRate),
       };
 
       const existing = await tx.ingredient.findFirst({

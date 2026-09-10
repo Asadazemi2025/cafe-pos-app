@@ -47,6 +47,10 @@ model Ingredient {
   // 買ったときの値段と量をそのまま持っておく。
   purchasePrice     Decimal?                    @db.Decimal(14, 2)
   purchaseQty       Decimal?                    @db.Decimal(14, 3)
+  // 歩留まり(0〜1)。買った量のうち、実際に商品に使える割合。
+  // 皮や芯を捨てる野菜、抽出で残るコーヒー粉など、買った量をそのまま
+  // 使えない材料のために持つ。原価と在庫の減り方の両方に効く。
+  yieldRate         Decimal                     @default(1) @db.Decimal(5, 4)
   lowStockThreshold Decimal?                    @db.Decimal(14, 3)
   isTest            Boolean                     @default(false)
   createdAt         DateTime                    @default(now())

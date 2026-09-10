@@ -51,9 +51,13 @@ export async function expandRecipeUsage(
     where: { menuItemId },
     include: { ingredient: true },
   });
-  return recipe.map((line) => ({
-    ingredientId: line.ingredientId,
-    ingredientName: line.ingredient.name,
-    qty: line.quantityPerUnit.mul(quantity).toNumber(),
-  }));
+  return recipe.map((line) => {
+    // 歩留まりが90%なら、10g使うために在庫からは11.1g減らす必要がある
+    const yieldRate = line.ingredient.yieldRate.toNumber() || 1;
+    return {
+      ingredientId: line.ingredientId,
+      ingredientName: line.ingredient.name,
+      qty: line.quantityPerUnit.mul(quantity).toNumber() / yieldRate,
+    };
+  });
 }
