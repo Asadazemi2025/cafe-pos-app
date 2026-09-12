@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAuth, requireEditAuth } from "@/lib/auth";
 import { getCurrentDayIndex, requireCurrentEvent } from "@/lib/event";
 import { prisma } from "@/lib/prisma";
+import { getTestMode } from "@/lib/app-mode";
 import { expandRecipeUsage } from "@/lib/cost";
 import {
   addMenuStock,
@@ -69,7 +70,7 @@ export async function getStock(): Promise<{ rows: StockRow[]; summary: StockSumm
     prisma.ingredient.findMany({ where: { isTest: false } }),
     prisma.recipeIngredient.findMany(),
     prisma.saleItem.findMany({
-      where: { sale: { eventId, dayIndex, voided: false, isTest: false } },
+      where: { sale: { eventId, dayIndex, voided: false, isTest: await getTestMode() } },
       select: { quantity: true, unitCost: true },
     }),
   ]);

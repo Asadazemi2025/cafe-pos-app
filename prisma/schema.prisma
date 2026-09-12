@@ -255,8 +255,10 @@ model DailyRegister {
   cashCounts   Json?
   // 締めのときに数えた金種の内訳
   closeCounts  Json?
+  // テストモードで開けたレジ。本番のレジ締めと混ざらないように分ける
+  isTest       Boolean   @default(false)
 
-  @@unique([eventId, dayIndex])
+  @@unique([eventId, dayIndex, isTest])
 }
 
 // 経費の計上単位。1日あたりはそのまま、イベント全体は営業日数で按分する
@@ -357,13 +359,19 @@ model SurveyResponse {
   knownFrom    String?
   favoriteItem String?
   comment      String?
+  // テストモード中に送られた回答。本番の集計には出さない
+  isTest       Boolean  @default(false)
   createdAt    DateTime @default(now())
 
   @@index([eventId, dayIndex])
 }
 
+// アプリ全体の設定。1行だけ("singleton")使う。
 model AppSetting {
   id        String   @id @default("singleton")
+  // テストモード。オンの間は、売上・経費・レジ・アンケートが
+  // テスト用として記録され、本番の数字には混ざらない。
+  // カード決済もStripeのテストキーを使う(実際のお金は動かない)。
   testMode  Boolean  @default(false)
   updatedAt DateTime @updatedAt
 }

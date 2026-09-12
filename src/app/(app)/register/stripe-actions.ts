@@ -7,6 +7,7 @@ import { getCurrentDayIndex, requireCurrentEvent } from "@/lib/event";
 import { getStripeClient } from "@/lib/stripe";
 import { performSale, type CartLine } from "@/lib/register-sale";
 import { prisma } from "@/lib/prisma";
+import { getTestMode } from "@/lib/app-mode";
 
 // カード・PayPayの決済は Stripe Checkout(Stripeが用意した決済ページ)で受ける。
 // タブレットにQRコードを出し、お客さまが自分のスマホで読み取って支払う方式なので、
@@ -24,7 +25,7 @@ function originFromHeaders(): string {
 
 async function assertRegisterOpen(eventId: string, dayIndex: number) {
   const session = await prisma.dailyRegister.findUnique({
-    where: { eventId_dayIndex: { eventId, dayIndex } },
+    where: { eventId_dayIndex_isTest: { eventId, dayIndex, isTest: await getTestMode() } },
   });
   if (!session?.openedAt) throw new Error("先にレジをはじめてください。");
   if (session.closedAt) throw new Error("このレジは締め済みです。");
@@ -69,7 +70,7 @@ export async function createCheckoutSession(items: CartLine[]): Promise<CreateCh
     });
 
     const origin = originFromHeaders();
-    const stripe = getStripeClient();
+    const stripe = await getStripeClient();
     const checkout = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: lineItems,
@@ -99,7 +100,7 @@ export async function getCheckoutStatus(sessionId: string): Promise<CheckoutStat
   }
 
   try {
-    const stripe = getStripeClient();
+    const stripe = await getStripeClient();
     const session = await stripe.checkout.sessions.retrieve(sessionId);
     return {
       ok: true,
@@ -126,7 +127,7 @@ export async function finalizeCheckoutSale(
   }
 
   try {
-    const stripe = getStripeClient();
+    const stripe = await getStripeClient();
     const session = await stripe.checkout.sessions.retrieve(sessionId, {
       expand: ["payment_intent.payment_method"],
     });
@@ -193,7 +194,7 @@ export async function createCardPaymentIntent(
       amount += menuItem.salePrice.toNumber() * line.quantity;
     }
 
-    const stripe = getStripeClient();
+    const stripe = await getStripeClient();
     // 日本円は小数点以下の桁がないため、amountはそのまま円の整数値
     const intent = await stripe.paymentIntents.create({
       amount: Math.round(amount),
@@ -224,7 +225,7 @@ export async function finalizeCardSale(
   }
 
   try {
-    const stripe = getStripeClient();
+    const stripe = await getStripeClient();
     const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
     if (intent.status !== "succeeded") {
       return { ok: false, message: "カード決済が完了していません。" };

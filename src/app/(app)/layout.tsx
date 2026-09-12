@@ -3,10 +3,12 @@ import { requireAuth, getRole } from "@/lib/auth";
 import { getCurrentEvent } from "@/lib/event";
 import { getDaySummary, breakevenBadge } from "@/lib/day-summary";
 import { prisma } from "@/lib/prisma";
+import { getTestMode } from "@/lib/app-mode";
 import { NavRail } from "@/components/layout/NavRail";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { DayBar } from "@/components/layout/DayBar";
 import { ViewerModeBanner } from "@/components/layout/ViewerModeBanner";
+import { TestModeBanner } from "@/components/layout/TestModeBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +21,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const [summary, session] = await Promise.all([
     getDaySummary(event.id, event.dayIndex),
     prisma.dailyRegister.findUnique({
-      where: { eventId_dayIndex: { eventId: event.id, dayIndex: event.dayIndex } },
+      where: {
+        eventId_dayIndex_isTest: {
+          eventId: event.id,
+          dayIndex: event.dayIndex,
+          isTest: await getTestMode(),
+        },
+      },
     }),
   ]);
 
@@ -36,6 +44,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           badgeReached={summary.over >= 0}
         />
         <DayBar days={event.dayList} dayIndex={event.dayIndex} registerActive={registerActive} />
+        {(await getTestMode()) && <TestModeBanner />}
         {role === "viewer" && <ViewerModeBanner />}
         <main className="min-h-0 flex-1 overflow-y-auto pb-[60px] md:pb-0">{children}</main>
       </div>

@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { prisma } from "@/lib/prisma";
+import { getTestMode } from "@/lib/app-mode";
 
 // 管理会計の計算をまとめたところ。
 // 「毎日いくらの利益が必要か」「その利益を出すにはどう売るか」
@@ -103,6 +104,7 @@ export async function getManagerialData(
   eventId: string,
   dayIndex: number,
 ): Promise<ManagerialData> {
+  const isTest = await getTestMode();
   const [event, plan, menuItems, recipes, sales, expenses] = await Promise.all([
     prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { days: true } }),
     getProfitPlan(eventId),
@@ -115,7 +117,7 @@ export async function getManagerialData(
       },
     }),
     prisma.sale.findMany({
-      where: { eventId, voided: false, isTest: false },
+      where: { eventId, voided: false, isTest },
       select: {
         dayIndex: true,
         totalAmount: true,
@@ -124,7 +126,7 @@ export async function getManagerialData(
         },
       },
     }),
-    prisma.expense.findMany({ where: { eventId, isTest: false }, select: { scope: true, amount: true } }),
+    prisma.expense.findMany({ where: { eventId, isTest }, select: { scope: true, amount: true } }),
   ]);
 
   // ---- 固定費(1日あたり) ----

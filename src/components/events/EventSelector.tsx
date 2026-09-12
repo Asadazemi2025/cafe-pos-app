@@ -11,6 +11,8 @@ import {
 } from "@/app/select-event/actions";
 import { logout } from "@/app/logout/actions";
 import { todayJST } from "@/lib/date";
+import { ModeSwitch } from "@/components/events/ModeSwitch";
+import type { AppModeDTO } from "@/app/select-event/actions";
 
 const STATUS_STYLE = {
   ongoing: { label: "開催中", cls: "bg-accent-weak-2 text-accent-deep" },
@@ -20,9 +22,11 @@ const STATUS_STYLE = {
 
 export function EventSelector({
   events,
+  mode,
   readOnly = false,
 }: {
   events: EventDTO[];
+  mode: AppModeDTO;
   readOnly?: boolean;
 }) {
   const router = useRouter();
@@ -152,6 +156,10 @@ export function EventSelector({
         <p className="mt-1 text-[13px] text-ink-muted">
           営業するイベントを選んで開店します。売上・レジ金・損益はイベントごとに分かれます。
         </p>
+
+        <div className="mt-4">
+          <ModeSwitch mode={mode} readOnly={readOnly} />
+        </div>
 
         <div className="mt-5 max-h-[440px] space-y-2.5 overflow-y-auto pr-1">
           {events.map((ev) => {

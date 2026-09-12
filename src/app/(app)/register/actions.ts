@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAuth, requireEditAuth } from "@/lib/auth";
 import { getCurrentDayIndex, requireCurrentEvent } from "@/lib/event";
 import { prisma } from "@/lib/prisma";
+import { getTestMode } from "@/lib/app-mode";
 
 import { performSale, voidSale as voidSaleCore, type CartLine } from "@/lib/register-sale";
 import { getMenuStockMap } from "@/lib/event-stock";
@@ -71,7 +72,7 @@ export async function getRecentSales(): Promise<RecentSaleDTO[]> {
   const eventId = requireCurrentEvent();
   const dayIndex = getCurrentDayIndex();
   const sales = await prisma.sale.findMany({
-    where: { eventId, dayIndex, isTest: false },
+    where: { eventId, dayIndex, isTest: await getTestMode() },
     orderBy: { occurredAt: "desc" },
     take: 20,
   });
@@ -104,8 +105,9 @@ export async function checkout(input: {
   const dayIndex = getCurrentDayIndex();
 
   // 締め済み・未開店のレジでは会計できない
+  const isTest = await getTestMode();
   const session = await prisma.dailyRegister.findUnique({
-    where: { eventId_dayIndex: { eventId, dayIndex } },
+    where: { eventId_dayIndex_isTest: { eventId, dayIndex, isTest } },
   });
   if (!session?.openedAt) return { ok: false, message: "先にレジをはじめてください。" };
   if (session.closedAt) return { ok: false, message: "このレジは締め済みです。" };

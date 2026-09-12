@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { buildDayList, initialDayIndex } from "@/lib/event";
+import { getTestMode } from "@/lib/app-mode";
 
 // お客さまが回答するアンケート。合言葉なしで送信できる(店頭のQRから開く)。
 // 受け取るのは選択式と自由記述だけで、個人が特定される情報は集めない。
@@ -33,6 +34,8 @@ export async function submitSurvey(input: {
     data: {
       eventId: event.id,
       dayIndex,
+      // テストモード中の回答は本番の集計に混ぜない
+      isTest: await getTestMode(),
       satisfaction,
       repeatIntent:
         input.repeatIntent && input.repeatIntent >= 1 && input.repeatIntent <= 5

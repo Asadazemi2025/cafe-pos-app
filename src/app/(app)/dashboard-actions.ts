@@ -3,6 +3,7 @@
 import { requireAuth } from "@/lib/auth";
 import { requireCurrentEvent } from "@/lib/event";
 import { prisma } from "@/lib/prisma";
+import { getTestMode } from "@/lib/app-mode";
 import { getIngredientStockMap } from "@/lib/event-stock";
 
 export type DashboardSummary = {
@@ -21,9 +22,9 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
   const eventId = requireCurrentEvent();
 
   const [sales, expenseAgg] = await Promise.all([
-    prisma.sale.findMany({ where: { eventId, voided: false, isTest: false } }),
+    prisma.sale.findMany({ where: { eventId, voided: false, isTest: await getTestMode() } }),
     prisma.expense.aggregate({
-      where: { eventId, isTest: false },
+      where: { eventId, isTest: await getTestMode() },
       _sum: { amount: true },
     }),
   ]);

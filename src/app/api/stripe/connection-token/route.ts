@@ -10,7 +10,7 @@ export async function POST() {
   }
 
   try {
-    const stripe = getStripeClient();
+    const stripe = await getStripeClient();
     const token = await stripe.terminal.connectionTokens.create();
     return NextResponse.json({ secret: token.secret });
   } catch (e) {

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAuth, requireEditAuth } from "@/lib/auth";
 import { getCurrentEvent, requireCurrentEvent } from "@/lib/event";
 import { prisma } from "@/lib/prisma";
+import { getTestMode } from "@/lib/app-mode";
 import { Prisma } from "@prisma/client";
 
 export type ExpenseScopeDTO = "PER_DAY" | "WHOLE_EVENT";
@@ -38,7 +39,7 @@ export async function getExpenses(): Promise<{ rows: ExpenseDTO[]; summary: Expe
   const days = Math.max(1, event.days);
 
   const expenses = await prisma.expense.findMany({
-    where: { isTest: false, eventId },
+    where: { isTest: await getTestMode(), eventId },
     orderBy: { createdAt: "desc" },
   });
 
@@ -94,6 +95,8 @@ export async function createExpense(input: {
       name: input.name.trim(),
       amount: new Prisma.Decimal(input.amount),
       scope: input.scope,
+      // テストモード中に入れた経費は、本番の損益には出さない
+      isTest: await getTestMode(),
       memo: input.memo?.trim() || null,
       spentOn: new Date(`${spentOn}T00:00:00Z`),
     },

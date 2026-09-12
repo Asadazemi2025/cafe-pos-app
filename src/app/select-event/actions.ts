@@ -1,7 +1,11 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+
 import { requireAuth, requireEditAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getTestMode, setTestMode } from "@/lib/app-mode";
+import { isLiveStripeKey } from "@/lib/stripe";
 import {
   buildDayList,
   eventStatus,
@@ -26,11 +30,12 @@ export type EventDTO = {
 
 export async function getEvents(): Promise<EventDTO[]> {
   requireAuth();
+  const isTest = await getTestMode();
   const events = await prisma.event.findMany({
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     include: {
       sales: {
-        where: { voided: false, isTest: false },
+        where: { voided: false, isTest },
         select: { totalAmount: true },
       },
     },
@@ -99,4 +104,25 @@ export async function deleteEvent(eventId: string): Promise<void> {
   requireEditAuth();
   // 売上・経費・レジ記録はイベント削除時にeventIdがnullになる(履歴は消さない)
   await prisma.event.delete({ where: { id: eventId } });
+}
+
+export type AppModeDTO = {
+  testMode: boolean;
+  /** いま使うStripeのキーが本物(sk_live_)かどうか */
+  stripeLive: boolean;
+};
+
+export async function getAppMode(): Promise<AppModeDTO> {
+  requireAuth();
+  return { testMode: await getTestMode(), stripeLive: await isLiveStripeKey() };
+}
+
+/**
+ * テストモードと本番モードを切り替える。
+ * 記録先(売上・経費・レジ・アンケート)とStripeのキーが同時に切り替わる。
+ */
+export async function switchTestMode(testMode: boolean): Promise<void> {
+  requireEditAuth();
+  await setTestMode(testMode);
+  revalidatePath("/", "layout");
 }

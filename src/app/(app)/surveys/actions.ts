@@ -5,6 +5,7 @@ import { requireAuth, requireEditAuth } from "@/lib/auth";
 import { getCurrentEvent } from "@/lib/event";
 import { getAllDaySummaries } from "@/lib/day-summary";
 import { prisma } from "@/lib/prisma";
+import { getTestMode } from "@/lib/app-mode";
 
 export type SurveyDayRow = {
   dayIndex: number;
@@ -67,7 +68,7 @@ export async function getSurveyData(): Promise<SurveyData | null> {
 
   const [responses, summaries] = await Promise.all([
     prisma.surveyResponse.findMany({
-      where: { eventId: event.id },
+      where: { eventId: event.id, isTest: await getTestMode() },
       orderBy: { createdAt: "desc" },
     }),
     getAllDaySummaries(event.id),

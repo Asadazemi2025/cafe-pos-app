@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { prisma } from "@/lib/prisma";
+import { getTestMode } from "@/lib/app-mode";
 
 // README「計算ロジック」をそのまま移植したもの。
 // ヘッダーのバッジ・レジ・分析・振り返りはすべてここを経由する。
@@ -77,10 +78,12 @@ type EventData = {
 // イベント1件ぶんのデータを1往復で読み、同じリクエスト内では使い回す。
 // (ヘッダーのバッジ・ページ本体・分析が同じ集計を何度も取りにいくのを防ぐ)
 const loadEventData = cache(async (eventId: string): Promise<EventData> => {
+  // テストモード中はテスト用の売上・経費だけを見る(本番の数字と混ぜない)
+  const isTest = await getTestMode();
   const [event, sales, expenses] = await Promise.all([
     prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { id: true, days: true } }),
     prisma.sale.findMany({
-      where: { eventId, voided: false, isTest: false },
+      where: { eventId, voided: false, isTest },
       orderBy: { occurredAt: "asc" },
       select: {
         dayIndex: true,
@@ -94,7 +97,7 @@ const loadEventData = cache(async (eventId: string): Promise<EventData> => {
       },
     }),
     prisma.expense.findMany({
-      where: { eventId, isTest: false },
+      where: { eventId, isTest },
       select: { scope: true, amount: true },
     }),
   ]);

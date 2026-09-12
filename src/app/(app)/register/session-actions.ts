@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAuth, requireEditAuth } from "@/lib/auth";
 import { getCurrentDayIndex, requireCurrentEvent } from "@/lib/event";
 import { prisma } from "@/lib/prisma";
+import { getTestMode } from "@/lib/app-mode";
 import { Prisma } from "@prisma/client";
 import { sumCashCounts, type CashCounts } from "@/lib/denominations";
 
@@ -30,7 +31,7 @@ export type SessionDTO = {
 async function salesByMethod(eventId: string, dayIndex: number) {
   const rows = await prisma.sale.groupBy({
     by: ["paymentMethod"],
-    where: { eventId, dayIndex, voided: false, isTest: false },
+    where: { eventId, dayIndex, voided: false, isTest: await getTestMode() },
     _sum: { totalAmount: true },
   });
   let cash = 0;
@@ -49,7 +50,7 @@ export async function getSession(): Promise<SessionDTO> {
   const dayIndex = getCurrentDayIndex();
 
   const [row, methods] = await Promise.all([
-    prisma.dailyRegister.findUnique({ where: { eventId_dayIndex: { eventId, dayIndex } } }),
+    prisma.dailyRegister.findUnique({ where: { eventId_dayIndex_isTest: { eventId, dayIndex, isTest: await getTestMode() } } }),
     salesByMethod(eventId, dayIndex),
   ]);
 
@@ -82,8 +83,16 @@ export async function openRegister(day: string, counts: CashCounts): Promise<voi
   if (openingCash.lte(0)) throw new Error("釣銭準備金を入力してください。");
 
   await prisma.dailyRegister.upsert({
-    where: { eventId_dayIndex: { eventId, dayIndex } },
-    create: { eventId, dayIndex, day, openingCash, openedAt: new Date(), cashCounts: counts },
+    where: { eventId_dayIndex_isTest: { eventId, dayIndex, isTest: await getTestMode() } },
+    create: {
+      eventId,
+      dayIndex,
+      day,
+      openingCash,
+      openedAt: new Date(),
+      cashCounts: counts,
+      isTest: await getTestMode(),
+    },
     update: {
       day,
       openingCash,
@@ -104,7 +113,7 @@ export async function closeRegister(counts: CashCounts): Promise<{ diff: number 
   const dayIndex = getCurrentDayIndex();
 
   const row = await prisma.dailyRegister.findUnique({
-    where: { eventId_dayIndex: { eventId, dayIndex } },
+    where: { eventId_dayIndex_isTest: { eventId, dayIndex, isTest: await getTestMode() } },
   });
   if (!row?.openedAt || row.openingCash === null) {
     throw new Error("先にレジをはじめてください。");
@@ -115,7 +124,7 @@ export async function closeRegister(counts: CashCounts): Promise<{ diff: number 
   const theoretical = row.openingCash.add(methods.cash);
 
   await prisma.dailyRegister.update({
-    where: { eventId_dayIndex: { eventId, dayIndex } },
+    where: { eventId_dayIndex_isTest: { eventId, dayIndex, isTest: await getTestMode() } },
     data: {
       closingCash: counted,
       expectedCash: theoretical,

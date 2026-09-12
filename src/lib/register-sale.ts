@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { getTestMode } from "@/lib/app-mode";
 import { Prisma, type PaymentMethod } from "@prisma/client";
 import { expandRecipeUsage, computeMenuItemCost, type IngredientUsageLine } from "@/lib/cost";
 import {
@@ -42,6 +43,8 @@ export async function performSale(input: {
 
   const merged = mergeCartLines(input.items);
   if (merged.length === 0) throw new Error("カートが空です。");
+
+  const isTest = await getTestMode();
 
   try {
     const saleId = await prisma.$transaction(
@@ -138,6 +141,8 @@ export async function performSale(input: {
             totalCost,
             itemCount,
             paymentMethod: input.paymentMethod,
+            // テストモード中の会計は、本番の売上に混ざらないよう印を付ける
+            isTest,
             stripePaymentIntentId: input.stripePaymentIntentId ?? null,
             clientId: input.clientId ?? null,
             items: { create: itemsData },
