@@ -141,11 +141,14 @@
   }
 }
 
-/* iOSのSafariで入力欄タップ時に自動ズームするのを防ぐ */
+/* 入力欄の既定の文字サイズ。16pxより小さいとiOSがタップ時に自動ズームするため、
+   何も指定しない入力欄はこの大きさにする。
+   ページ側で text-2xl などを指定したときは、そちらを優先させたいので !important は付けない
+   (自動ズーム自体は、ルートのviewportで maximumScale: 1 を指定して止めている)。 */
 input,
 select,
 textarea {
-  font-size: 16px !important;
+  font-size: 16px;
 }
 
 /* レシート印刷: .receipt-print要素だけを印刷し、それ以外は隠す */

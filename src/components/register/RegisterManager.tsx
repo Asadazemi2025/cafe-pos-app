@@ -224,9 +224,9 @@ export function RegisterManager({
   if (!session.opened) {
     return (
       <div className="anim-fade-up flex h-full items-center justify-center p-6">
-        <div className="w-full max-w-[440px] rounded-3xl border border-border bg-surface p-7 shadow-card">
-          <h2 className="text-[19px] font-bold">{session.dayIndex + 1}日目 のレジをはじめる</h2>
-          <p className="mt-1 text-[13px] text-ink-muted">
+        <div className="w-full max-w-[520px] rounded-3xl border border-border bg-surface p-6 shadow-card md:p-8">
+          <h2 className="text-[22px] font-bold">{session.dayIndex + 1}日目 のレジをはじめる</h2>
+          <p className="mt-1.5 text-[14px] leading-relaxed text-ink-muted">
             釣銭準備金を金種ごとに数えて入力してください。レジ締めのときに、この金額と現金売上をもとに差異を出します。
           </p>
           <div className="mt-5">
@@ -235,7 +235,7 @@ export function RegisterManager({
           <button
             onClick={handleOpen}
             disabled={pending}
-            className="press press-cta mt-5 w-full rounded-lg bg-dark py-[17px] text-base font-bold text-white disabled:opacity-40"
+            className="press press-cta mt-6 w-full rounded-lg bg-dark py-[19px] text-[17px] font-bold text-white disabled:opacity-40"
           >
             レジをはじめる
           </button>
