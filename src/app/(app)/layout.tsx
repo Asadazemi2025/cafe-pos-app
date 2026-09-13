@@ -8,7 +8,6 @@ import { NavRail } from "@/components/layout/NavRail";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { DayBar } from "@/components/layout/DayBar";
 import { ViewerModeBanner } from "@/components/layout/ViewerModeBanner";
-import { TestModeBanner } from "@/components/layout/TestModeBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const event = await getCurrentEvent();
   if (!event) redirect("/select-event");
 
+  const testMode = await getTestMode();
   const [summary, session] = await Promise.all([
     getDaySummary(event.id, event.dayIndex),
     prisma.dailyRegister.findUnique({
@@ -25,7 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         eventId_dayIndex_isTest: {
           eventId: event.id,
           dayIndex: event.dayIndex,
-          isTest: await getTestMode(),
+          isTest: testMode,
         },
       },
     }),
@@ -42,9 +42,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           daySales={summary.sales}
           badge={breakevenBadge(summary)}
           badgeReached={summary.over >= 0}
+          testMode={testMode}
+          readOnly={role === "viewer"}
         />
         <DayBar days={event.dayList} dayIndex={event.dayIndex} registerActive={registerActive} />
-        {(await getTestMode()) && <TestModeBanner />}
         {role === "viewer" && <ViewerModeBanner />}
         <main className="min-h-0 flex-1 overflow-y-auto pb-[60px] md:pb-0">{children}</main>
       </div>

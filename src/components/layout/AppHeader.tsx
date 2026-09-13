@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { yen } from "@/lib/money";
+import { TestModeSwitch } from "@/components/layout/TestModeSwitch";
 import type { CurrentEvent } from "@/lib/event";
 
 const TITLES: Record<string, string> = {
@@ -21,11 +22,15 @@ export function AppHeader({
   daySales,
   badge,
   badgeReached,
+  testMode,
+  readOnly = false,
 }: {
   event: CurrentEvent;
   daySales: number;
   badge: string;
   badgeReached: boolean;
+  testMode: boolean;
+  readOnly?: boolean;
 }) {
   const pathname = usePathname();
   const title =
@@ -48,6 +53,7 @@ export function AppHeader({
       </Link>
 
       <div className="ml-auto flex items-center gap-3 md:gap-[18px]">
+        <TestModeSwitch testMode={testMode} readOnly={readOnly} />
         <div className="text-right">
           <div className="num text-[10px] tracking-[.1em] text-ink-muted">
             {day ? `${day.label} ／ ${day.dateLabel}` : ""}
